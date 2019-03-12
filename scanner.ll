@@ -12,6 +12,8 @@ extern int sym_type(const char *);  /* returns type from symbol table */
 static void comment(void);
 static yy::parser::symbol_type check_type(const yy::parser::location_type &loc );
 static yy::parser::symbol_type checkIConstant( const yy::parser::location_type &loc );
+static yy::parser::symbol_type checkHIConstant( const yy::parser::location_type &loc );
+static yy::parser::symbol_type checkOIConstant( const yy::parser::location_type &loc );
 # define YY_USER_ACTION  loc.columns (yyleng);
 %}
 
@@ -99,11 +101,11 @@ WS  [ \t\v\n\f]
 
 {L}{A}*					{ return check_type(loc); }
 
-{HP}{H}+{IS}?   { /*return  yy::parser::make_ICONSTANT( atio(yytext),ICONSTANT::iType(), loc);*/ return checkIConstant(loc); }
-{NZ}{D}*{IS}?				{ /*return  yy::parser::make_ICONSTANT(loc);*/ return checkIConstant(loc); }
-"0"{O}*{IS}?				{ /*return  yy::parser::make_ICONSTANT(loc);*/ return checkIConstant(loc); }
+{HP}{H}+{IS}?   { return checkHIConstant(loc); }
+{NZ}{D}*{IS}?				{ return checkIConstant(loc); }
+"0"{O}*{IS}?				{ return checkOIConstant(loc); }
 
-{CP}?"'"([^'\\\n]|{ES})+"'"		{ /*return  yy::parser::make_ICONSTANT(loc);*/ return checkIConstant(loc); }
+{CP}?"'"([^'\\\n]|{ES})+"'"		{ return checkIConstant(loc); }
 
 {D}+{E}{FS}?				{ return  yy::parser::make_F_CONSTANT(loc); }
 {D}*"."{D}+{E}?{FS}?			{ return  yy::parser::make_F_CONSTANT(loc); }
@@ -151,7 +153,7 @@ WS  [ \t\v\n\f]
 "!"					{ }
 "~"					{ }
 "-"					{ }
-"+"					{ }
+"+"					{ return yy::parser::make_XADD(loc);}
 "*"					{ }
 "/"					{ }
 "%"					{ }
@@ -224,6 +226,61 @@ void driver::scan_end ()
 
 static yy::parser::symbol_type checkIConstant( const yy::parser::location_type &loc )
 {
-    return yy::parser::make_ICONSTANT( IConstant(atoi(yytext), IConstant::iType()),loc);
+    int uCnt = 0;
+    int lCnt = 0;
+    std::string val(yytext);
+    for(auto it = val.begin(); it != val.end(); ++it)
+    {
+        if(*it == 'u' || *it == 'U')
+        {
+            ++uCnt;
+            *it = 0;
+        }
+        if(*it == 'l' || *it == 'L')
+        {
+            ++lCnt;
+            *it = 0;
+        }
+    }
+
+    if( uCnt == 0 && lCnt == 0 ) // int
+    {
+        return yy::parser::make_ICONSTANT( IConstant(std::stoi(val), IConstant::iType()), loc );
+    }
+    else if( uCnt == 0 && lCnt == 1 ) // long int
+    {
+        return yy::parser::make_ICONSTANT( IConstant(std::stol(val), IConstant::lType()), loc );
+    }
+    else if( uCnt == 0 && lCnt == 2 ) // long long int 
+    {
+        return yy::parser::make_ICONSTANT( IConstant(std::stoll(val), IConstant::llType()), loc );
+    }
+    else if( uCnt == 1 && lCnt == 0 ) // unsigned int
+    {
+        unsigned int res = 0;
+        for(auto it=val.cbegin(); it != val.cend() && *it != 0; ++it)
+            (res *= 10) += (*it-'0');
+        return yy::parser::make_ICONSTANT( IConstant(res, IConstant::uiType()), loc );
+    }
+    else if( uCnt == 1 && lCnt == 1 ) // unsigned long int 
+    {
+        return yy::parser::make_ICONSTANT( IConstant(std::stoul(val), IConstant::ulType()), loc );
+    }
+    else if( uCnt == 1 && lCnt == 2 ) // unsigned long long int 
+    {
+        return yy::parser::make_ICONSTANT( IConstant(std::stoull(val), IConstant::ullType()), loc );
+    }
+    else 
+    {
+        throw yy::parser::syntax_error
+            (loc, "undefined interger Type: " + std::string(yytext));
+    }
+    throw yy::parser::syntax_error
+        (loc, "undefined interger Type: " + std::string(yytext));
+
 }
 
+static yy::parser::symbol_type checkHIConstant( const yy::parser::location_type &loc ) //TODO
+{}
+static yy::parser::symbol_type checkOIConstant( const yy::parser::location_type &loc ) //TODO
+{}

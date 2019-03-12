@@ -90,11 +90,21 @@
 
 %token	ALIGNAS ALIGNOF ATOMIC GENERIC NORETURN STATIC_ASSERT THREAD_LOCAL
 
-%token END 
+%token END  0 "end of file"
 
-
-%start translation_unit
+%type<int> Xexp
+%token XADD
+/*%start translation_unit*/
+%start unit
 %%
+
+unit
+    : Xexp {drv.result = $1;}
+
+Xexp
+    : ICONSTANT {$$ = $1.iVal; std::cerr << "Int : " << $1.iVal <<std::endl;}
+    | Xexp XADD Xexp {$$ = $1+$3; std::cerr << $$ << '=' << $1 <<'+' <<$3 <<std::endl;}
+    ;
 
 primary_expression
 	: IDENTIFIER
@@ -617,7 +627,3 @@ void
    std::cerr << l << ": " << m << '\n';
    }
 
-int main()
-{
-    return 0;
-}

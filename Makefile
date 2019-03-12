@@ -4,14 +4,15 @@
 BISON=bison
 CXX=clang++
 FLEX=flex
-CXXFLAG=-std=c++14 -Wunknown-warning-option `llvm-config --cxxflags --ldflags --system-libs --libs core mcjit native`
-CXXFLAGS=-O3 -std=c++14 -Wno-unknown-warning-option `llvm-config --cxxflags`
-LINKFLAGS=-std=c++14 `llvm-config --ldflags --libs` -lpthread -lncurses
+CXXFLAG=`llvm-config --cxxflags --ldflags --system-libs --libs core mcjit native` -std=c++14 -Wunknown-warning-option 
+CXXFLAGS=`llvm-config --cxxflags` -fexceptions -O3 -std=c++14 -Wno-unknown-warning-option
+LINKFLAGS=`llvm-config --ldflags --libs` -lpthread -lncurses -std=c++14
+BISONFLAGS=-Wno-other
 
 all: noMiniC
 
 %.cc %.hh: %.yy
-	$(BISON) -o $*.cc $<
+	$(BISON) $(BISONFLAGS) -o $*.cc $<
 
 %.cc: %.ll
 	$(FLEX) -o $@ $<
@@ -19,7 +20,7 @@ all: noMiniC
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-noMiniC: driver.o parser.o scanner.o
+noMiniC: driver.o parser.o scanner.o test.o
 	$(CXX) $(LINKFLAGS) -o $@ $^
 
 parser.o: parser.hh constant.hh
