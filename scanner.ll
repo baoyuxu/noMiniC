@@ -9,13 +9,14 @@
 extern void yyerror(const char *);  /* prints grammar violation message */
 extern int sym_type(const char *);  /* returns type from symbol table */
 #define sym_type(identifier) IDENTIFIER /* with no symbol table, fake it */
-static void comment(void);
 static yy::parser::symbol_type check_type(const yy::parser::location_type &loc );
 static yy::parser::symbol_type checkI_Constant( const yy::parser::location_type &loc );
 static yy::parser::symbol_type checkF_Constant( const yy::parser::location_type &loc );
 # define YY_USER_ACTION  loc.columns (yyleng);
 %}
 
+%x COMMENT
+%x COMMENT_OVER_LINES
 %option nounput noinput batch debug
 
 %e  1019
@@ -49,56 +50,60 @@ WS  [ \t\v\n\f]
   // Code run each time yylex is called.
   loc.step ();
 %}
-"/*"                                    { comment(); }
-"//".*                                    { /* consume //-comment */ }
+"//"                 { BEGIN(COMMENT); }
+<COMMENT>\n       { BEGIN(INITIAL); }
+<COMMENT>.  {};
+"/*"                 {BEGIN(COMMENT_OVER_LINES);}
+<COMMENT_OVER_LINES>"*/"       {BEGIN(INITIAL);}
+<COMMENT_OVER_LINES>.  {};
 
-"auto"					{ return yy::parser::make_AUTO(loc); }
-"break"					{ return yy::parser::make_BREAK(loc); }
-"case"					{ return yy::parser::make_CASE(loc); }
-"char"					{ return yy::parser::make_CHAR(loc); }
-"const"					{ return yy::parser::make_CONST(loc); }
-"continue"				{ return yy::parser::make_CONTINUE(loc); }
-"default"				{ return yy::parser::make_DEFAULT(loc);}
-"do"					{ return yy::parser::make_DO(loc); }
-"double"				{ return yy::parser::make_DOUBLE(loc); }
-"else"					{ return yy::parser::make_ELSE(loc); }
-"enum"					{ return yy::parser::make_ENUM(loc); }
-"extern"				{ return yy::parser::make_EXTERN(loc); }
-"float"					{ return yy::parser::make_FLOAT(loc); }
-"for"					{ return yy::parser::make_FOR(loc); }
-"goto"					{ return yy::parser::make_GOTO(loc); }
-"if"					{ return yy::parser::make_IF(loc); }
-"inline"				{ return yy::parser::make_INLINE(loc); }
-"int"					{ return yy::parser::make_INT(loc); }
-"long"					{ return yy::parser::make_LONG(loc); }
-"register"				{ return yy::parser::make_REGISTER(loc); }
-"restrict"				{ return yy::parser::make_RESTRICT(loc); }
-"return"				{ return yy::parser::make_RETURN(loc); }
-"short"					{ return yy::parser::make_SHORT(loc); }
-"signed"				{ return yy::parser::make_SIGNED(loc); }
-"sizeof"				{ return yy::parser::make_SIZEOF(loc); }
-"static"				{ return yy::parser::make_STATIC(loc); }
-"struct"				{ return yy::parser::make_STRUCT(loc); }
-"switch"				{ return yy::parser::make_SWITCH(loc); }
-"typedef"				{ return yy::parser::make_TYPEDEF(loc); }
-"union"					{ return yy::parser::make_UNION(loc); }
-"unsigned"				{ return yy::parser::make_UNSIGNED(loc); }
-"void"					{ return yy::parser::make_VOID(loc); }
-"volatile"				{ return yy::parser::make_VOLATILE(loc); }
-"while"					{ return yy::parser::make_WHILE(loc); }
-"_Alignas"                              { return  yy::parser::make_ALIGNAS(loc); }
-"_Alignof"                              { return  yy::parser::make_ALIGNOF(loc); }
-"_Atomic"                               { return  yy::parser::make_ATOMIC(loc); }
-"_Bool"                                 { return  yy::parser::make_BOOL(loc); }
-"_Complex"                              { return  yy::parser::make_COMPLEX(loc); }
-"_Generic"                              { return  yy::parser::make_GENERIC(loc); }
-"_Imaginary"                            { return  yy::parser::make_IMAGINARY(loc); }
-"_Noreturn"                             { return  yy::parser::make_NORETURN(loc); }
-"_Static_assert"                        { return  yy::parser::make_STATIC_ASSERT(loc); }
-"_Thread_local"                         { return  yy::parser::make_THREAD_LOCAL(loc); }
-"__func__"                              { return  yy::parser::make_FUNC_NAME(loc); }
+"auto"					{ return yy::parser::make_AUTO(loc);            }
+"break"					{ return yy::parser::make_BREAK(loc);           }
+"case"					{ return yy::parser::make_CASE(loc);            }
+"char"					{ return yy::parser::make_CHAR(loc);            }
+"const"					{ return yy::parser::make_CONST(loc);           }
+"continue"				{ return yy::parser::make_CONTINUE(loc);        }
+"default"				{ return yy::parser::make_DEFAULT(loc);         }
+"do"					{ return yy::parser::make_DO(loc);              }
+"double"				{ return yy::parser::make_DOUBLE(loc);          }
+"else"					{ return yy::parser::make_ELSE(loc);            }
+"enum"					{ return yy::parser::make_ENUM(loc);            }
+"extern"				{ return yy::parser::make_EXTERN(loc);          }
+"float"					{ return yy::parser::make_FLOAT(loc);           }
+"for"					{ return yy::parser::make_FOR(loc);             }
+"goto"					{ return yy::parser::make_GOTO(loc);            }
+"if"					{ return yy::parser::make_IF(loc);              }
+"inline"				{ return yy::parser::make_INLINE(loc);          }
+"int"					{ return yy::parser::make_INT(loc);             }
+"long"					{ return yy::parser::make_LONG(loc);            }
+"register"				{ return yy::parser::make_REGISTER(loc);        }
+"restrict"				{ return yy::parser::make_RESTRICT(loc);        }
+"return"				{ return yy::parser::make_RETURN(loc);          }
+"short"					{ return yy::parser::make_SHORT(loc);           }
+"signed"				{ return yy::parser::make_SIGNED(loc);          }
+"sizeof"				{ return yy::parser::make_SIZEOF(loc);          }
+"static"				{ return yy::parser::make_STATIC(loc);          }
+"struct"				{ return yy::parser::make_STRUCT(loc);          }
+"switch"				{ return yy::parser::make_SWITCH(loc);          }
+"typedef"				{ return yy::parser::make_TYPEDEF(loc);         }
+"union"					{ return yy::parser::make_UNION(loc);           }
+"unsigned"				{ return yy::parser::make_UNSIGNED(loc);        }
+"void"					{ return yy::parser::make_VOID(loc);            }
+"volatile"				{ return yy::parser::make_VOLATILE(loc);        }
+"while"					{ return yy::parser::make_WHILE(loc);           }
+"_Alignas"              { return yy::parser::make_ALIGNAS(loc);         }
+"_Alignof"              { return yy::parser::make_ALIGNOF(loc);         }
+"_Atomic"               { return yy::parser::make_ATOMIC(loc);          }
+"_Bool"                 { return yy::parser::make_BOOL(loc);            }
+"_Complex"              { return yy::parser::make_COMPLEX(loc);         }
+"_Generic"              { return yy::parser::make_GENERIC(loc);         }
+"_Imaginary"            { return yy::parser::make_IMAGINARY(loc);       }
+"_Noreturn"             { return yy::parser::make_NORETURN(loc);        }
+"_Static_assert"        { return yy::parser::make_STATIC_ASSERT(loc);   }
+"_Thread_local"         { return yy::parser::make_THREAD_LOCAL(loc);    }
+"__func__"              { return yy::parser::make_FUNC_NAME(loc);       }
 
-{L}{A}*					{ return check_type(loc); }
+{L}{A}*					{ return check_type(loc); } //TODO
 
 {HP}{H}+{IS}?   { return checkI_Constant(loc); }
 {NZ}{D}*{IS}?				{ return checkI_Constant(loc); }
@@ -172,25 +177,6 @@ int yywrap(void)        /* called at end of input */
     return 1;           /* terminate now */
 }
 
-static void comment(void)
-{
-    /*int c;
-
-    while ((c = input()) != 0)
-        if (c == '*')
-        {
-            while ((c = input()) == '*')
-                ;
-
-            if (c == '/')
-                return;
-
-            if (c == 0)
-                break;
-        }
-    yyerror("unterminated comment");
-    */
-}
 
 static yy::parser::symbol_type check_type(const yy::parser::location_type &loc )
 {

@@ -139,9 +139,8 @@
 %token END  0 "end of file"
 
 %type<std::string> Xexp
-%token XADD
-/*%start translation_unit*/
-%start unit
+%start translation_unit
+//%start unit
 %%
 
 unit
@@ -149,7 +148,7 @@ unit
 
 Xexp
     : STRING_LITERAL {$$ = $1; std::cerr << "Int : " << $1 <<std::endl;}
-    | Xexp XADD Xexp {$$ = $1+$3; std::cerr << $$ << '=' << $1 <<'+' <<$3 <<std::endl;}
+    | Xexp PLUS Xexp {$$ = $1+$3; std::cerr << $$ << '=' << $1 <<'+' <<$3 <<std::endl;}
     ;
 
 primary_expression
