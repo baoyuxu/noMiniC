@@ -53,6 +53,17 @@
     #include <utility>
     #include <vector>
     class driver;
+
+    static llvm::LLVMContext TheContext;
+    static llvm::IRBuilder<> Builder(TheContext);
+    static std::unique_ptr<llvm::Module> TheModule;
+    static std::map<std::string, llvm::AllocaInst *> NamedValues;
+//    static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
+
+
+    llvm::Value *LogErrorV(const char *Str);
+    static llvm::AllocaInst *CreateEntryBlockAlloca(llvm::Function *TheFunction, const std::string &VarName);
+
 }
 
 %param { driver& drv }
@@ -61,12 +72,10 @@
 
 %define parse.trace
 %define parse.error verbose
-
-%code
+%code 
 {
-    # include "driver.hh"
+    #include "driver.hh"
 }
-
 %define api.token.prefix {TOK_}
 
 %token <std::string>            IDENTIFIER              "identifier"
@@ -138,19 +147,22 @@
 
 %token END  0 "end of file"
 
-%type<std::string> Xexp
+%type<llvm::Constant*> constant
+
+
+//%type<std::string> Xexp
 %start translation_unit
 //%start unit
 %%
 
-unit
+/*unit
     : Xexp {drv.result = $1;}
 
 Xexp
     : STRING_LITERAL {$$ = $1; std::cerr << "Int : " << $1 <<std::endl;}
     | Xexp PLUS Xexp {$$ = $1+$3; std::cerr << $$ << '=' << $1 <<'+' <<$3 <<std::endl;}
     ;
-
+*/
 primary_expression
 	: IDENTIFIER
 	| constant
@@ -160,9 +172,18 @@ primary_expression
 	;
 
 constant
-	: I_CONSTANT		/* includes character_constant */
+	: I_CONSTANT
+    {
+        if($1.type == I_Constant::Type::UINT)
+            $$ = llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, $1.uiVal));
+    }
 	| F_CONSTANT
-	| ENUMERATION_CONSTANT	/* after it has been defined as such */
+    {
+        if($1.type == F_Constant::Type::FLOAT)
+            $$ = llvm::ConstantFP::get(llvm::Type::getFloatTy(TheContext), llvm::APFloat($1.fVal));
+    }
+    ;
+	/*| ENUMERATION_CONSTANT*/
 	;
 
 enumeration_constant		/* before it has been defined as such */
@@ -666,9 +687,21 @@ void yyerror(const char *s)
 	fprintf(stderr, "*** %s\n", s);
 }
 
-void
-   yy::parser::error (const location_type& l, const std::string& m)
-   {
+void yy::parser::error (const location_type& l, const std::string& m)
+{
    std::cerr << l << ": " << m << '\n';
-   }
+}
+
+static llvm::AllocaInst *CreateEntryBlockAlloca(llvm::Function *TheFunction, const std::string &VarName) 
+{
+  llvm::IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
+  return TmpB.CreateAlloca(llvm::Type::getDoubleTy(TheContext), 0, VarName.c_str());
+}
+
+llvm::Value *LogErrorV(const char *Str) 
+{
+  yyerror(Str);
+  return nullptr;
+}
+
 

@@ -7,8 +7,6 @@
 # include "driver.hh"
 # include "parser.hh"
 extern void yyerror(const char *);  /* prints grammar violation message */
-extern int sym_type(const char *);  /* returns type from symbol table */
-#define sym_type(identifier) IDENTIFIER /* with no symbol table, fake it */
 static yy::parser::symbol_type check_type(const yy::parser::location_type &loc );
 static yy::parser::symbol_type checkI_Constant( const yy::parser::location_type &loc );
 static yy::parser::symbol_type checkF_Constant( const yy::parser::location_type &loc );
