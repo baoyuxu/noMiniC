@@ -11,9 +11,8 @@ extern int sym_type(const char *);  /* returns type from symbol table */
 #define sym_type(identifier) IDENTIFIER /* with no symbol table, fake it */
 static void comment(void);
 static yy::parser::symbol_type check_type(const yy::parser::location_type &loc );
-static yy::parser::symbol_type checkIConstant( const yy::parser::location_type &loc );
-static yy::parser::symbol_type checkHIConstant( const yy::parser::location_type &loc );
-static yy::parser::symbol_type checkOIConstant( const yy::parser::location_type &loc );
+static yy::parser::symbol_type checkI_Constant( const yy::parser::location_type &loc );
+static yy::parser::symbol_type checkF_Constant( const yy::parser::location_type &loc );
 # define YY_USER_ACTION  loc.columns (yyleng);
 %}
 
@@ -101,67 +100,67 @@ WS  [ \t\v\n\f]
 
 {L}{A}*					{ return check_type(loc); }
 
-{HP}{H}+{IS}?   { return checkHIConstant(loc); }
-{NZ}{D}*{IS}?				{ return checkIConstant(loc); }
-"0"{O}*{IS}?				{ return checkOIConstant(loc); }
+{HP}{H}+{IS}?   { return checkI_Constant(loc); }
+{NZ}{D}*{IS}?				{ return checkI_Constant(loc); }
+"0"{O}*{IS}?				{ return checkI_Constant(loc); }
 
-{CP}?"'"([^'\\\n]|{ES})+"'"		{ return checkIConstant(loc); }
+{CP}?"'"([^'\\\n]|{ES})+"'"		{ return checkI_Constant(loc); }
 
-{D}+{E}{FS}?				{ return  yy::parser::make_F_CONSTANT(loc); }
-{D}*"."{D}+{E}?{FS}?			{ return  yy::parser::make_F_CONSTANT(loc); }
-{D}+"."{E}?{FS}?			{ return  yy::parser::make_F_CONSTANT(loc); }
-{HP}{H}+{P}{FS}?			{ return  yy::parser::make_F_CONSTANT(loc); }
-{HP}{H}*"."{H}+{P}{FS}?			{ return  yy::parser::make_F_CONSTANT(loc); }
-{HP}{H}+"."{P}{FS}?			{ return  yy::parser::make_F_CONSTANT(loc); }
+{D}+{E}{FS}?				{ return  checkF_Constant(loc); }
+{D}*"."{D}+{E}?{FS}?			{ return  checkF_Constant(loc); }
+{D}+"."{E}?{FS}?			{ return  checkF_Constant(loc); }
+{HP}{H}+{P}{FS}?			{ return  checkF_Constant(loc); }
+{HP}{H}*"."{H}+{P}{FS}?			{ return  checkF_Constant(loc); }
+{HP}{H}+"."{P}{FS}?			{ return  checkF_Constant(loc); }
 
-({SP}?\"([^"\\\n]|{ES})*\"{WS}*)+	{ return  yy::parser::make_STRING_LITERAL( yytext,loc); }
+({SP}?\"([^"\\\n]|{ES})*\"{WS}*)+   { return  yy::parser::make_STRING_LITERAL( std::string(yytext),loc); }
 
-"..."					{ return yy::parser::make_ELLIPSIS(loc); }
-">>="					{ return yy::parser::make_RIGHT_ASSIGN(loc); }
-"<<="					{ return yy::parser::make_LEFT_ASSIGN(loc); }
-"+="					{ return yy::parser::make_ADD_ASSIGN(loc); }
-"-="					{ return yy::parser::make_SUB_ASSIGN(loc); }
-"*="					{ return yy::parser::make_MUL_ASSIGN(loc); }
-"/="					{ return yy::parser::make_DIV_ASSIGN(loc); }
-"%="					{ return yy::parser::make_MOD_ASSIGN(loc); }
-"&="					{ return yy::parser::make_AND_ASSIGN(loc); }
-"^="					{ return yy::parser::make_XOR_ASSIGN(loc); }
-"|="					{ return yy::parser::make_OR_ASSIGN(loc); }
-">>"					{ return yy::parser::make_RIGHT_OP(loc); }
-"<<"					{ return yy::parser::make_LEFT_OP(loc); }
-"++"					{ return yy::parser::make_INC_OP(loc); }
-"--"					{ return yy::parser::make_DEC_OP(loc); }
-"->"					{ return yy::parser::make_PTR_OP(loc); }
-"&&"					{ return yy::parser::make_AND_OP(loc); }
-"||"					{ return yy::parser::make_OR_OP(loc); }
-"<="					{ return yy::parser::make_LE_OP(loc); }
-">="					{ return yy::parser::make_GE_OP(loc); }
-"=="					{ return yy::parser::make_EQ_OP(loc); }
-"!="					{ return yy::parser::make_NE_OP(loc); }
-";"					{ }
-("{"|"<%")				{ }
-("}"|"%>")				{ }
-","					{ }
-":"					{ }
-"="					{ }
-"("					{ }
-")"					{ }
-("["|"<:")				{ }
-("]"|":>")				{ }
-"."					{ }
-"&"					{ }
-"!"					{ }
-"~"					{ }
-"-"					{ }
-"+"					{ return yy::parser::make_XADD(loc);}
-"*"					{ }
-"/"					{ }
-"%"					{ }
-"<"					{ }
-">"					{ }
-"^"					{ }
-"|"					{ }
-"?"					{ }
+"..."				{ return yy::parser::make_ELLIPSIS(loc);            }
+">>="				{ return yy::parser::make_RIGHT_ASSIGN(loc);        }
+"<<="				{ return yy::parser::make_LEFT_ASSIGN(loc);         }
+"+="				{ return yy::parser::make_ADD_ASSIGN(loc);          }
+"-="				{ return yy::parser::make_SUB_ASSIGN(loc);          }
+"*="				{ return yy::parser::make_MUL_ASSIGN(loc);          }
+"/="				{ return yy::parser::make_DIV_ASSIGN(loc);          }
+"%="				{ return yy::parser::make_MOD_ASSIGN(loc);          }
+"&="				{ return yy::parser::make_AND_ASSIGN(loc);          }
+"^="				{ return yy::parser::make_XOR_ASSIGN(loc);          }
+"|="				{ return yy::parser::make_OR_ASSIGN(loc);           }
+">>"				{ return yy::parser::make_RIGHT_OP(loc);            }
+"<<"				{ return yy::parser::make_LEFT_OP(loc);             }
+"++"				{ return yy::parser::make_INC_OP(loc);              }
+"--"				{ return yy::parser::make_DEC_OP(loc);              }
+"->"				{ return yy::parser::make_PTR_OP(loc);              }
+"&&"				{ return yy::parser::make_AND_OP(loc);              }
+"||"				{ return yy::parser::make_OR_OP(loc);               }
+"<="				{ return yy::parser::make_LE_OP(loc);               }
+">="				{ return yy::parser::make_GE_OP(loc);               }
+"=="				{ return yy::parser::make_EQ_OP(loc);               }
+"!="				{ return yy::parser::make_NE_OP(loc);               }
+";"					{ return yy::parser::make_SEMICOLON(loc);           }
+("{"|"<%")			{ return yy::parser::make_LEFT_CURLY_BRACE(loc);    }
+("}"|"%>")			{ return yy::parser::make_RIGHT_CURLY_BRACE(loc);   }
+","					{ return yy::parser::make_COMMA(loc);               }
+":"					{ return yy::parser::make_COLON(loc);               }
+"="					{ return yy::parser::make_EQ(loc);                  }
+"("					{ return yy::parser::make_LEFT_PARENTHESIS(loc);    }
+")"					{ return yy::parser::make_RIGHT_PARAENTHESIS(loc);  }
+("["|"<:")			{ return yy::parser::make_LEFT_BRACKETS(loc);       }
+("]"|":>")			{ return yy::parser::make_RIGHT_BRACKETS(loc);      }
+"."					{ return yy::parser::make_DOT(loc);                 }
+"&"					{ return yy::parser::make_AND_BY_BIT(loc);          }
+"!"					{ return yy::parser::make_NOT(loc);                 }
+"~"					{ return yy::parser::make_REVERSE(loc);             }
+"-"					{ return yy::parser::make_MINUS(loc);               }
+"+"					{ return yy::parser::make_PLUS(loc);                }
+"*"					{ return yy::parser::make_STAR(loc);                }
+"/"					{ return yy::parser::make_DEVIDE(loc);              }
+"%"					{ return yy::parser::make_MODULO(loc);              }
+"<"					{ return yy::parser::make_LEFT_ANGLE_BRACKETS(loc); }
+">"					{ return yy::parser::make_RIGHT_ANGLE_BRACKETS(loc);}
+"^"					{ return yy::parser::make_EXCLUSIVE_OR(loc);        }
+"|"					{ return yy::parser::make_OR_BY_BIT(loc);           }
+"?"					{ return yy::parser::make_QUESTION_MARK(loc);       }
 
 {WS}+					{ /* whitespace separates tokens */ }
 .					{ /* discard bad characters */ }
@@ -224,7 +223,7 @@ void driver::scan_end ()
   fclose (yyin);
 }
 
-static yy::parser::symbol_type checkIConstant( const yy::parser::location_type &loc )
+static yy::parser::symbol_type checkI_Constant( const yy::parser::location_type &loc )
 {
     int uCnt = 0;
     int lCnt = 0;
@@ -245,30 +244,54 @@ static yy::parser::symbol_type checkIConstant( const yy::parser::location_type &
 
     if( uCnt == 0 && lCnt == 0 ) // int
     {
-        return yy::parser::make_ICONSTANT( IConstant(std::stoi(val), IConstant::iType()), loc );
+        return yy::parser::make_I_CONSTANT( I_Constant(std::stoi(val), I_Constant::iType()), loc );
     }
     else if( uCnt == 0 && lCnt == 1 ) // long int
     {
-        return yy::parser::make_ICONSTANT( IConstant(std::stol(val), IConstant::lType()), loc );
+        return yy::parser::make_I_CONSTANT( I_Constant(std::stol(val), I_Constant::lType()), loc );
     }
     else if( uCnt == 0 && lCnt == 2 ) // long long int 
     {
-        return yy::parser::make_ICONSTANT( IConstant(std::stoll(val), IConstant::llType()), loc );
+        return yy::parser::make_I_CONSTANT( I_Constant(std::stoll(val), I_Constant::llType()), loc );
     }
     else if( uCnt == 1 && lCnt == 0 ) // unsigned int
     {
         unsigned int res = 0;
+        int base = 0;
         for(auto it=val.cbegin(); it != val.cend() && *it != 0; ++it)
-            (res *= 10) += (*it-'0');
-        return yy::parser::make_ICONSTANT( IConstant(res, IConstant::uiType()), loc );
+        {
+            if(base == 0 && *it == '0')
+            {
+                base = 8;
+                continue;
+            }
+            else if(base == 0 && *it != '0')
+            {
+                base = 10;
+            }
+
+            if(base == 8 && (*it == 'X' || *it == 'x'))
+            {
+                base = 16;
+                continue;
+            }
+
+            if(*it >= '0' && *it <= '9')
+                (res*=base)+=(*it-'0');
+            else if(*it >= 'a' && *it <= 'f')
+                (res*=base)+=(*it-'a');
+            else if(*it >= 'A' && *it <= 'F')
+                (res*=base)+=(*it-'A');
+        }
+        return yy::parser::make_I_CONSTANT( I_Constant(res, I_Constant::uiType()), loc );
     }
     else if( uCnt == 1 && lCnt == 1 ) // unsigned long int 
     {
-        return yy::parser::make_ICONSTANT( IConstant(std::stoul(val), IConstant::ulType()), loc );
+        return yy::parser::make_I_CONSTANT( I_Constant(std::stoul(val), I_Constant::ulType()), loc );
     }
     else if( uCnt == 1 && lCnt == 2 ) // unsigned long long int 
     {
-        return yy::parser::make_ICONSTANT( IConstant(std::stoull(val), IConstant::ullType()), loc );
+        return yy::parser::make_I_CONSTANT( I_Constant(std::stoull(val), I_Constant::ullType()), loc );
     }
     else 
     {
@@ -280,7 +303,36 @@ static yy::parser::symbol_type checkIConstant( const yy::parser::location_type &
 
 }
 
-static yy::parser::symbol_type checkHIConstant( const yy::parser::location_type &loc ) //TODO
-{}
-static yy::parser::symbol_type checkOIConstant( const yy::parser::location_type &loc ) //TODO
-{}
+static yy::parser::symbol_type checkF_Constant( const yy::parser::location_type &loc )
+{
+    int fCnt = 0;
+    int lCnt = 0;
+    std::string val(yytext);
+    for(auto it=val.begin(); it != val.end(); ++it)
+    {
+        if(*it == 'f' || *it == 'F')
+        {
+            ++fCnt;
+            *it = '0';
+        }
+        else if(*it == 'l' || *it == 'L')
+        {
+            ++lCnt;
+            *it = '0';
+        }
+    }
+    if(fCnt == 0 && lCnt == 0)
+        return yy::parser::make_F_CONSTANT(F_Constant(std::stod(val), F_Constant::dType()), loc);
+    else if(fCnt == 0 && lCnt == 1)
+        return yy::parser::make_F_CONSTANT(F_Constant(std::stold(val), F_Constant::ldType()), loc);
+    else if(fCnt == 1 && lCnt == 0)
+        return yy::parser::make_F_CONSTANT(F_Constant(std::stof(val), F_Constant::fType()), loc);
+    else
+        throw yy::parser::syntax_error
+            (loc, "undefined float Type: " + std::string(yytext));
+
+    throw yy::parser::syntax_error
+        (loc, "undefined float Type: " + std::string(yytext));
+}
+
+

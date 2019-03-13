@@ -17,7 +17,7 @@ class driver
             :trace_parsing(false), trace_scanning(false)
         {}
 
-        int result;
+        std::string result;
         int parse(const std::string &f)
         {
             file = f;

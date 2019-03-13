@@ -72,19 +72,65 @@
 %token <std::string>            IDENTIFIER              "identifier"
 %token <std::string>            STRING_LITERAL          "string_literal"
 %token                     SIZEOF                  "sizeof"
-%token <IConstant> ICONSTANT
-%token	F_CONSTANT FUNC_NAME 
-%token	PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
-%token	AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
-%token	SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
-%token	XOR_ASSIGN OR_ASSIGN
+%token <I_Constant> I_CONSTANT
+%token <F_Constant> F_CONSTANT
+%token 
+        SEMICOLON               ";"
+        LEFT_CURLY_BRACE        "{"
+        RIGHT_CURLY_BRACE       "}"
+        COMMA                   ","
+        COLON                   ":"
+        EQ                      "="
+        LEFT_PARENTHESIS        "("
+        RIGHT_PARAENTHESIS      ")"
+        LEFT_BRACKETS           "["
+        RIGHT_BRACKETS          "]"
+        DOT                     "."
+        AND_BY_BIT              "&"
+        NOT                     "!"
+        REVERSE                 "~"
+        MINUS                   "-"
+        PLUS                    "+"
+        STAR                    "*"
+        DEVIDE                  "/"
+        MODULO                  "%"
+        LEFT_ANGLE_BRACKETS     "<"
+        RIGHT_ANGLE_BRACKETS    ">"
+        EXCLUSIVE_OR            "^"
+        OR_BY_BIT               "|"
+        QUESTION_MARK           "?"
+        ELLIPSIS                "..."
+        RIGHT_ASSIGN            ">>="
+        LEFT_ASSIGN             "<<="
+        ADD_ASSIGN              "+="
+        SUB_ASSIGN              "-="
+        MUL_ASSIGN              "*="
+        DIV_ASSIGN              "/="
+        MOD_ASSIGN              "%="
+        AND_ASSIGN              "&="
+        XOR_ASSIGN              "^="
+        OR_ASSIGN               "|="
+        RIGHT_OP                ">>"
+        LEFT_OP                 "<<"
+        INC_OP                  "++"
+        DEC_OP                  "--"
+        PTR_OP                  "->"
+        AND_OP                  "&&"
+        OR_OP                   "||"
+        LE_OP                   "<="
+        GE_OP                   ">="
+        EQ_OP                   "=="
+        NE_OP                   "!="
+        ;
+
+%token	FUNC_NAME 
 %token	TYPEDEF_NAME ENUMERATION_CONSTANT
 
 %token	TYPEDEF EXTERN STATIC AUTO REGISTER INLINE
 %token	CONST RESTRICT VOLATILE
 %token	BOOL CHAR SHORT INT LONG SIGNED UNSIGNED FLOAT DOUBLE VOID
 %token	COMPLEX IMAGINARY 
-%token	STRUCT UNION ENUM ELLIPSIS
+%token	STRUCT UNION ENUM 
 
 %token	CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 
@@ -92,7 +138,7 @@
 
 %token END  0 "end of file"
 
-%type<int> Xexp
+%type<std::string> Xexp
 %token XADD
 /*%start translation_unit*/
 %start unit
@@ -102,7 +148,7 @@ unit
     : Xexp {drv.result = $1;}
 
 Xexp
-    : ICONSTANT {$$ = $1.iVal; std::cerr << "Int : " << $1.iVal <<std::endl;}
+    : STRING_LITERAL {$$ = $1; std::cerr << "Int : " << $1 <<std::endl;}
     | Xexp XADD Xexp {$$ = $1+$3; std::cerr << $$ << '=' << $1 <<'+' <<$3 <<std::endl;}
     ;
 
@@ -115,7 +161,7 @@ primary_expression
 	;
 
 constant
-	: ICONSTANT		/* includes character_constant */
+	: I_CONSTANT		/* includes character_constant */
 	| F_CONSTANT
 	| ENUMERATION_CONSTANT	/* after it has been defined as such */
 	;
