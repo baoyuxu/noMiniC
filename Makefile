@@ -5,9 +5,10 @@ BISON=bison
 CXX=clang++
 FLEX=flex
 CXXFLAG=`llvm-config --cxxflags --ldflags --system-libs --libs core mcjit native` -std=c++14 -Wunknown-warning-option 
-CXXFLAGS=`llvm-config --cxxflags` -fexceptions -O3 -std=c++14 -Wno-unknown-warning-option
+CXXFLAGS=`llvm-config --cxxflags` -Wall -fexceptions -O2 -std=c++14 -Wno-unknown-warning-option
 LINKFLAGS=`llvm-config --ldflags --libs` -lpthread -lncurses -std=c++14
 BISONFLAG=-Wno-other
+HEADERS=constant.hh expression.hh common.hh
 
 all: noMiniC
 
@@ -23,10 +24,10 @@ all: noMiniC
 noMiniC: driver.o parser.o scanner.o test.o
 	$(CXX) $(LINKFLAGS) -o $@ $^
 
-scanner.cc: scanner.ll constant.hh
-parser.cc: parser.yy constant.hh
-parser.o: parser.hh constant.hh
-scanner.o: parser.hh constant.hh
+scanner.cc: scanner.ll $(HEADERS)
+parser.cc: parser.yy $(HEADERS)
+parser.o: parser.hh $(HEADERS)
+scanner.o: parser.hh $(HEADERS)
 
 clean:
 	rm -f noMiniC *.o parser.hh parser.cc scanner.cc location.hh

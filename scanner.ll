@@ -49,7 +49,7 @@ WS  [ \t\v\n\f]
   loc.step ();
 %}
 "//"                 { BEGIN(COMMENT); }
-<COMMENT>\n       { BEGIN(INITIAL); }
+<COMMENT>\n       { BEGIN(INITIAL); }  //TODO TOFIX: On *nix it is '\n' but on Windowns it is "\r\n". then how about on Mac OS?
 <COMMENT>.  {};
 "/*"                 {BEGIN(COMMENT_OVER_LINES);}
 <COMMENT_OVER_LINES>"*/"       {BEGIN(INITIAL);}
@@ -101,7 +101,7 @@ WS  [ \t\v\n\f]
 "_Thread_local"         { return yy::parser::make_THREAD_LOCAL(loc);    }
 "__func__"              { return yy::parser::make_FUNC_NAME(loc);       }
 
-{L}{A}*					{ return check_type(loc); } //TODO
+{L}{A}*					{ return check_type(loc); } //TODO TOFIX
 
 {HP}{H}+{IS}?   { return checkI_Constant(loc); }
 {NZ}{D}*{IS}?				{ return checkI_Constant(loc); }
@@ -176,7 +176,7 @@ int yywrap(void)        /* called at end of input */
 }
 
 
-static yy::parser::symbol_type check_type(const yy::parser::location_type &loc )
+static yy::parser::symbol_type check_type(const yy::parser::location_type &loc ) //TODO TOFIX
 {
     /*switch (sym_type(yytext))
     {
@@ -228,15 +228,15 @@ static yy::parser::symbol_type checkI_Constant( const yy::parser::location_type 
 
     if( uCnt == 0 && lCnt == 0 ) // int
     {
-        return yy::parser::make_I_CONSTANT( I_Constant(std::stoi(val), I_Constant::iType()), loc );
+        return yy::parser::make_I_CONSTANT( I_Constant(std::stoi(val, 0, 0), I_Constant::iType()), loc );
     }
     else if( uCnt == 0 && lCnt == 1 ) // long int
     {
-        return yy::parser::make_I_CONSTANT( I_Constant(std::stol(val), I_Constant::lType()), loc );
+        return yy::parser::make_I_CONSTANT( I_Constant(std::stol(val, 0, 0), I_Constant::lType()), loc );
     }
     else if( uCnt == 0 && lCnt == 2 ) // long long int 
     {
-        return yy::parser::make_I_CONSTANT( I_Constant(std::stoll(val), I_Constant::llType()), loc );
+        return yy::parser::make_I_CONSTANT( I_Constant(std::stoll(val, 0, 0), I_Constant::llType()), loc );
     }
     else if( uCnt == 1 && lCnt == 0 ) // unsigned int
     {
@@ -271,11 +271,11 @@ static yy::parser::symbol_type checkI_Constant( const yy::parser::location_type 
     }
     else if( uCnt == 1 && lCnt == 1 ) // unsigned long int 
     {
-        return yy::parser::make_I_CONSTANT( I_Constant(std::stoul(val), I_Constant::ulType()), loc );
+        return yy::parser::make_I_CONSTANT( I_Constant(std::stoul(val, 0, 0), I_Constant::ulType()), loc );
     }
     else if( uCnt == 1 && lCnt == 2 ) // unsigned long long int 
     {
-        return yy::parser::make_I_CONSTANT( I_Constant(std::stoull(val), I_Constant::ullType()), loc );
+        return yy::parser::make_I_CONSTANT( I_Constant(std::stoull(val, 0, 0), I_Constant::ullType()), loc );
     }
     else 
     {

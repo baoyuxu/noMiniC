@@ -8,50 +8,8 @@
 
 %code requires 
 {
-    #include "constant.hh"
-    #include "llvm/ADT/APFloat.h"
-    #include "llvm/ADT/Optional.h"
-    #include "llvm/ADT/STLExtras.h"
-    #include "llvm/IR/BasicBlock.h"
-    #include "llvm/IR/Constants.h"
-    #include "llvm/IR/DerivedTypes.h"
-    #include "llvm/IR/Function.h"
-    #include "llvm/IR/Instructions.h"
-    #include "llvm/IR/IRBuilder.h"
-    #include "llvm/IR/LLVMContext.h"
-    #include "llvm/IR/LegacyPassManager.h"
-    #include "llvm/IR/Module.h"
-    #include "llvm/IR/Type.h"
-    #include "llvm/IR/Verifier.h"
-    #include "llvm/Support/FileSystem.h"
-    #include "llvm/Support/Host.h"
-    #include "llvm/Support/raw_ostream.h"
-    #include "llvm/Support/TargetRegistry.h"
-    #include "llvm/Support/TargetSelect.h"
-    #include "llvm/Target/TargetMachine.h"
-    #include "llvm/Target/TargetOptions.h"
-    #include "llvm/ADT/STLExtras.h"
-    #include "llvm/Analysis/BasicAliasAnalysis.h"
-    #include "llvm/Analysis/Passes.h"
-    #include "llvm/IR/DIBuilder.h"
-    #include "llvm/IR/IRBuilder.h"
-    #include "llvm/IR/LLVMContext.h"
-    #include "llvm/IR/LegacyPassManager.h"
-    #include "llvm/IR/Module.h"
-    #include "llvm/IR/Verifier.h"
-    #include "llvm/Support/TargetSelect.h"
-    #include "llvm/Transforms/Scalar.h"
-    #include <algorithm>
-    #include <cassert>
-    #include <cctype>
-    #include <cstdio>
-    #include <cstdlib>
-    #include <map>
-    #include <memory>
-    #include <string>
-    #include <system_error>
-    #include <utility>
-    #include <vector>
+    #include "common.hh"
+
     class driver;
 
     static llvm::LLVMContext TheContext;
@@ -147,40 +105,64 @@
 
 %token END  0 "end of file"
 
-%type<llvm::Constant*> constant
+%type<llvm::Constant *> constant
+%type<llvm::Value *> expression
+%type<PrimaryExpression> primary_expression
+%type<llvm::Value *> string
 
-
-//%type<std::string> Xexp
 %start translation_unit
+
+//%type<llvm::APInt> Xexp
 //%start unit
 %%
 
 /*unit
-    : Xexp {drv.result = $1;}
+    : Xexp 
 
 Xexp
-    : STRING_LITERAL {$$ = $1; std::cerr << "Int : " << $1 <<std::endl;}
-    | Xexp PLUS Xexp {$$ = $1+$3; std::cerr << $$ << '=' << $1 <<'+' <<$3 <<std::endl;}
-    ;
-*/
+    : primary_expression 
+    { 
+        if($1.type == PrimaryExpression::Type::constant) 
+            std::cerr<<"constant:" <<*($1.constantVal->getUniqueInteger().getRawData())<<std::endl;
+        else if($1.type == PrimaryExpression::Type::IDENTIFIER )
+            std::cerr<<"IDENTIFIER: "<<$1.IDENTIFIERVal<<std::endl;
+    }
+    | Xexp PLUS Xexp 
+    ;*/
+
+
 primary_expression
-	: IDENTIFIER
-	| constant
+	: IDENTIFIER{$$.type = PrimaryExpression::Type::IDENTIFIER; $$.IDENTIFIERVal = $1;}
+	| constant {$$.type = PrimaryExpression::Type::constant; $$.constantVal = $1;}
+	| "(" expression ")" {$$.type = PrimaryExpression::Type::expression; $$.expressionVal = $2;}
+    ;
+	/*| generic_selection
 	| string
-	| '(' expression ')'
-	| generic_selection
-	;
+	;*/
 
 constant
 	: I_CONSTANT
     {
-        if($1.type == I_Constant::Type::UINT)
-            $$ = llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, $1.uiVal));
+        if( $1.type == I_Constant::Type::INT )
+            $$ = llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, $1.iVal, true));
+        else if( $1.type == I_Constant::Type::UINT )
+            $$ = llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, $1.uiVal, false));
+        else if( $1.type == I_Constant::Type::LONG )
+            $$ = llvm::ConstantInt::get(llvm::Type::getInt64Ty(TheContext), llvm::APInt(64, $1.lVal, true));
+        else if( $1.type == I_Constant::Type::ULONG )
+            $$ = llvm::ConstantInt::get(llvm::Type::getInt64Ty(TheContext), llvm::APInt(64, $1.ulVal, false));
+        else if( $1.type == I_Constant::Type::LONGLONG )
+            $$ = llvm::ConstantInt::get(llvm::Type::getInt64Ty(TheContext), llvm::APInt(64, $1.llVal, true));
+        else if( $1.type == I_Constant::Type::ULONGLONG )
+            $$ = llvm::ConstantInt::get(llvm::Type::getInt64Ty(TheContext), llvm::APInt(64, $1.ullVal, false));
     }
 	| F_CONSTANT
     {
         if($1.type == F_Constant::Type::FLOAT)
             $$ = llvm::ConstantFP::get(llvm::Type::getFloatTy(TheContext), llvm::APFloat($1.fVal));
+        else if($1.type == F_Constant::Type::DOUBLE)
+            $$ = llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat($1.dVal));
+        //TODO: long double type
     }
     ;
 	/*| ENUMERATION_CONSTANT*/
@@ -192,39 +174,40 @@ enumeration_constant		/* before it has been defined as such */
 
 string
 	: STRING_LITERAL
-	| FUNC_NAME
-	;
+    ;
+	/*| FUNC_NAME
+	;*/
 
 generic_selection
-	: GENERIC '(' assignment_expression ',' generic_assoc_list ')'
+	: GENERIC "(" assignment_expression "," generic_assoc_list ")"
 	;
 
 generic_assoc_list
 	: generic_association
-	| generic_assoc_list ',' generic_association
+	| generic_assoc_list "," generic_association
 	;
 
 generic_association
-	: type_name ':' assignment_expression
-	| DEFAULT ':' assignment_expression
+	: type_name ":" assignment_expression
+	| DEFAULT ":" assignment_expression
 	;
 
 postfix_expression
 	: primary_expression
-	| postfix_expression '[' expression ']'
-	| postfix_expression '(' ')'
-	| postfix_expression '(' argument_expression_list ')'
-	| postfix_expression '.' IDENTIFIER
+	| postfix_expression "[" expression "]"
+	| postfix_expression "(" ")"
+	| postfix_expression "(" argument_expression_list ")"
+	| postfix_expression "." IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER
 	| postfix_expression INC_OP
 	| postfix_expression DEC_OP
-	| '(' type_name ')' '{' initializer_list '}'
-	| '(' type_name ')' '{' initializer_list ',' '}'
+	| "(" type_name ")" "{" initializer_list "}"
+	| "(" type_name ")" "{" initializer_list "," "}"
 	;
 
 argument_expression_list
 	: assignment_expression
-	| argument_expression_list ',' assignment_expression
+	| argument_expression_list "," assignment_expression
 	;
 
 unary_expression
@@ -233,35 +216,35 @@ unary_expression
 	| DEC_OP unary_expression
 	| unary_operator cast_expression
 	| SIZEOF unary_expression
-	| SIZEOF '(' type_name ')'
-	| ALIGNOF '(' type_name ')'
+	| SIZEOF "(" type_name ")"
+	| ALIGNOF "(" type_name ")"
 	;
 
 unary_operator
-	: '&'
-	| '*'
-	| '+'
-	| '-'
-	| '~'
-	| '!'
+	: "&"
+	| "*"
+	| "+"
+	| "-"
+	| "~"
+	| "!"
 	;
 
 cast_expression
 	: unary_expression
-	| '(' type_name ')' cast_expression
+	| "(" type_name ")" cast_expression
 	;
 
 multiplicative_expression
 	: cast_expression
-	| multiplicative_expression '*' cast_expression
-	| multiplicative_expression '/' cast_expression
-	| multiplicative_expression '%' cast_expression
+	| multiplicative_expression "*" cast_expression
+	| multiplicative_expression "/" cast_expression
+	| multiplicative_expression "%" cast_expression
 	;
 
 additive_expression
 	: multiplicative_expression
-	| additive_expression '+' multiplicative_expression
-	| additive_expression '-' multiplicative_expression
+	| additive_expression "+" multiplicative_expression
+	| additive_expression "-" multiplicative_expression
 	;
 
 shift_expression
@@ -272,8 +255,8 @@ shift_expression
 
 relational_expression
 	: shift_expression
-	| relational_expression '<' shift_expression
-	| relational_expression '>' shift_expression
+	| relational_expression "<" shift_expression
+	| relational_expression ">" shift_expression
 	| relational_expression LE_OP shift_expression
 	| relational_expression GE_OP shift_expression
 	;
@@ -286,17 +269,17 @@ equality_expression
 
 and_expression
 	: equality_expression
-	| and_expression '&' equality_expression
+	| and_expression "&" equality_expression
 	;
 
 exclusive_or_expression
 	: and_expression
-	| exclusive_or_expression '^' and_expression
+	| exclusive_or_expression "^" and_expression
 	;
 
 inclusive_or_expression
 	: exclusive_or_expression
-	| inclusive_or_expression '|' exclusive_or_expression
+	| inclusive_or_expression "|" exclusive_or_expression
 	;
 
 logical_and_expression
@@ -311,7 +294,7 @@ logical_or_expression
 
 conditional_expression
 	: logical_or_expression
-	| logical_or_expression '?' expression ':' conditional_expression
+	| logical_or_expression "?" expression ":" conditional_expression
 	;
 
 assignment_expression
@@ -320,7 +303,7 @@ assignment_expression
 	;
 
 assignment_operator
-	: '='
+	: "="
 	| MUL_ASSIGN
 	| DIV_ASSIGN
 	| MOD_ASSIGN
@@ -335,7 +318,7 @@ assignment_operator
 
 expression
 	: assignment_expression
-	| expression ',' assignment_expression
+	| expression "," assignment_expression
 	;
 
 constant_expression
@@ -343,8 +326,8 @@ constant_expression
 	;
 
 declaration
-	: declaration_specifiers ';'
-	| declaration_specifiers init_declarator_list ';'
+	: declaration_specifiers ";"
+	| declaration_specifiers init_declarator_list ";"
 	| static_assert_declaration
 	;
 
@@ -363,11 +346,11 @@ declaration_specifiers
 
 init_declarator_list
 	: init_declarator
-	| init_declarator_list ',' init_declarator
+	| init_declarator_list "," init_declarator
 	;
 
 init_declarator
-	: declarator '=' initializer
+	: declarator "=" initializer
 	| declarator
 	;
 
@@ -400,8 +383,8 @@ type_specifier
 	;
 
 struct_or_union_specifier
-	: struct_or_union '{' struct_declaration_list '}'
-	| struct_or_union IDENTIFIER '{' struct_declaration_list '}'
+	: struct_or_union "{" struct_declaration_list "}"
+	| struct_or_union IDENTIFIER "{" struct_declaration_list "}"
 	| struct_or_union IDENTIFIER
 	;
 
@@ -416,8 +399,8 @@ struct_declaration_list
 	;
 
 struct_declaration
-	: specifier_qualifier_list ';'	/* for anonymous struct/union */
-	| specifier_qualifier_list struct_declarator_list ';'
+	: specifier_qualifier_list ";"	/* for anonymous struct/union */
+	| specifier_qualifier_list struct_declarator_list ";"
 	| static_assert_declaration
 	;
 
@@ -430,35 +413,35 @@ specifier_qualifier_list
 
 struct_declarator_list
 	: struct_declarator
-	| struct_declarator_list ',' struct_declarator
+	| struct_declarator_list "," struct_declarator
 	;
 
 struct_declarator
-	: ':' constant_expression
-	| declarator ':' constant_expression
+	: ":" constant_expression
+	| declarator ":" constant_expression
 	| declarator
 	;
 
 enum_specifier
-	: ENUM '{' enumerator_list '}'
-	| ENUM '{' enumerator_list ',' '}'
-	| ENUM IDENTIFIER '{' enumerator_list '}'
-	| ENUM IDENTIFIER '{' enumerator_list ',' '}'
+	: ENUM "{" enumerator_list "}"
+	| ENUM "{" enumerator_list "," "}"
+	| ENUM IDENTIFIER "{" enumerator_list "}"
+	| ENUM IDENTIFIER "{" enumerator_list "," "}"
 	| ENUM IDENTIFIER
 	;
 
 enumerator_list
 	: enumerator
-	| enumerator_list ',' enumerator
+	| enumerator_list "," enumerator
 	;
 
 enumerator	/* identifiers must be flagged as ENUMERATION_CONSTANT */
-	: enumeration_constant '=' constant_expression
+	: enumeration_constant "=" constant_expression
 	| enumeration_constant
 	;
 
 atomic_type_specifier
-	: ATOMIC '(' type_name ')'
+	: ATOMIC "(" type_name ")"
 	;
 
 type_qualifier
@@ -474,8 +457,8 @@ function_specifier
 	;
 
 alignment_specifier
-	: ALIGNAS '(' type_name ')'
-	| ALIGNAS '(' constant_expression ')'
+	: ALIGNAS "(" type_name ")"
+	| ALIGNAS "(" constant_expression ")"
 	;
 
 declarator
@@ -485,26 +468,26 @@ declarator
 
 direct_declarator
 	: IDENTIFIER
-	| '(' declarator ')'
-	| direct_declarator '[' ']'
-	| direct_declarator '[' '*' ']'
-	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']'
-	| direct_declarator '[' STATIC assignment_expression ']'
-	| direct_declarator '[' type_qualifier_list '*' ']'
-	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']'
-	| direct_declarator '[' type_qualifier_list assignment_expression ']'
-	| direct_declarator '[' type_qualifier_list ']'
-	| direct_declarator '[' assignment_expression ']'
-	| direct_declarator '(' parameter_type_list ')'
-	| direct_declarator '(' ')'
-	| direct_declarator '(' identifier_list ')'
+	| "(" declarator ")"
+	| direct_declarator "[" "]"
+	| direct_declarator "[" "*" "]"
+	| direct_declarator "[" STATIC type_qualifier_list assignment_expression "]"
+	| direct_declarator "[" STATIC assignment_expression "]"
+	| direct_declarator "[" type_qualifier_list "*" "]"
+	| direct_declarator "[" type_qualifier_list STATIC assignment_expression "]"
+	| direct_declarator "[" type_qualifier_list assignment_expression "]"
+	| direct_declarator "[" type_qualifier_list "]"
+	| direct_declarator "[" assignment_expression "]"
+	| direct_declarator "(" parameter_type_list ")"
+	| direct_declarator "(" ")"
+	| direct_declarator "(" identifier_list ")"
 	;
 
 pointer
-	: '*' type_qualifier_list pointer
-	| '*' type_qualifier_list
-	| '*' pointer
-	| '*'
+	: "*" type_qualifier_list pointer
+	| "*" type_qualifier_list
+	| "*" pointer
+	| "*"
 	;
 
 type_qualifier_list
@@ -514,13 +497,13 @@ type_qualifier_list
 
 
 parameter_type_list
-	: parameter_list ',' ELLIPSIS
+	: parameter_list "," ELLIPSIS
 	| parameter_list
 	;
 
 parameter_list
 	: parameter_declaration
-	| parameter_list ',' parameter_declaration
+	| parameter_list "," parameter_declaration
 	;
 
 parameter_declaration
@@ -531,7 +514,7 @@ parameter_declaration
 
 identifier_list
 	: IDENTIFIER
-	| identifier_list ',' IDENTIFIER
+	| identifier_list "," IDENTIFIER
 	;
 
 type_name
@@ -546,44 +529,44 @@ abstract_declarator
 	;
 
 direct_abstract_declarator
-	: '(' abstract_declarator ')'
-	| '[' ']'
-	| '[' '*' ']'
-	| '[' STATIC type_qualifier_list assignment_expression ']'
-	| '[' STATIC assignment_expression ']'
-	| '[' type_qualifier_list STATIC assignment_expression ']'
-	| '[' type_qualifier_list assignment_expression ']'
-	| '[' type_qualifier_list ']'
-	| '[' assignment_expression ']'
-	| direct_abstract_declarator '[' ']'
-	| direct_abstract_declarator '[' '*' ']'
-	| direct_abstract_declarator '[' STATIC type_qualifier_list assignment_expression ']'
-	| direct_abstract_declarator '[' STATIC assignment_expression ']'
-	| direct_abstract_declarator '[' type_qualifier_list assignment_expression ']'
-	| direct_abstract_declarator '[' type_qualifier_list STATIC assignment_expression ']'
-	| direct_abstract_declarator '[' type_qualifier_list ']'
-	| direct_abstract_declarator '[' assignment_expression ']'
-	| '(' ')'
-	| '(' parameter_type_list ')'
-	| direct_abstract_declarator '(' ')'
-	| direct_abstract_declarator '(' parameter_type_list ')'
+	: "(" abstract_declarator ")"
+	| "[" "]"
+	| "[" "*" "]"
+	| "[" STATIC type_qualifier_list assignment_expression "]"
+	| "[" STATIC assignment_expression "]"
+	| "[" type_qualifier_list STATIC assignment_expression "]"
+	| "[" type_qualifier_list assignment_expression "]"
+	| "[" type_qualifier_list "]"
+	| "[" assignment_expression "]"
+	| direct_abstract_declarator "[" "]"
+	| direct_abstract_declarator "[" "*" "]"
+	| direct_abstract_declarator "[" STATIC type_qualifier_list assignment_expression "]"
+	| direct_abstract_declarator "[" STATIC assignment_expression "]"
+	| direct_abstract_declarator "[" type_qualifier_list assignment_expression "]"
+	| direct_abstract_declarator "[" type_qualifier_list STATIC assignment_expression "]"
+	| direct_abstract_declarator "[" type_qualifier_list "]"
+	| direct_abstract_declarator "[" assignment_expression "]"
+	| "(" ")"
+	| "(" parameter_type_list ")"
+	| direct_abstract_declarator "(" ")"
+	| direct_abstract_declarator "(" parameter_type_list ")"
 	;
 
 initializer
-	: '{' initializer_list '}'
-	| '{' initializer_list ',' '}'
+	: "{" initializer_list "}"
+	| "{" initializer_list "," "}"
 	| assignment_expression
 	;
 
 initializer_list
 	: designation initializer
 	| initializer
-	| initializer_list ',' designation initializer
-	| initializer_list ',' initializer
+	| initializer_list "," designation initializer
+	| initializer_list "," initializer
 	;
 
 designation
-	: designator_list '='
+	: designator_list "="
 	;
 
 designator_list
@@ -592,12 +575,12 @@ designator_list
 	;
 
 designator
-	: '[' constant_expression ']'
-	| '.' IDENTIFIER
+	: "[" constant_expression "]"
+	| "." IDENTIFIER
 	;
 
 static_assert_declaration
-	: STATIC_ASSERT '(' constant_expression ',' STRING_LITERAL ')' ';'
+	: STATIC_ASSERT "(" constant_expression "," STRING_LITERAL ")" ";"
 	;
 
 statement
@@ -610,14 +593,14 @@ statement
 	;
 
 labeled_statement
-	: IDENTIFIER ':' statement
-	| CASE constant_expression ':' statement
-	| DEFAULT ':' statement
+	: IDENTIFIER ":" statement
+	| CASE constant_expression ":" statement
+	| DEFAULT ":" statement
 	;
 
 compound_statement
-	: '{' '}'
-	| '{'  block_item_list '}'
+	: "{" "}"
+	| "{"  block_item_list "}"
 	;
 
 block_item_list
@@ -631,31 +614,31 @@ block_item
 	;
 
 expression_statement
-	: ';'
-	| expression ';'
+	: ";"
+	| expression ";"
 	;
 
 selection_statement
-	: IF '(' expression ')' statement ELSE statement
-	| IF '(' expression ')' statement
-	| SWITCH '(' expression ')' statement
+	: IF "(" expression ")" statement ELSE statement
+	| IF "(" expression ")" statement
+	| SWITCH "(" expression ")" statement
 	;
 
 iteration_statement
-	: WHILE '(' expression ')' statement
-	| DO statement WHILE '(' expression ')' ';'
-	| FOR '(' expression_statement expression_statement ')' statement
-	| FOR '(' expression_statement expression_statement expression ')' statement
-	| FOR '(' declaration expression_statement ')' statement
-	| FOR '(' declaration expression_statement expression ')' statement
+	: WHILE "(" expression ")" statement
+	| DO statement WHILE "(" expression ")" ";"
+	| FOR "(" expression_statement expression_statement ")" statement
+	| FOR "(" expression_statement expression_statement expression ")" statement
+	| FOR "(" declaration expression_statement ")" statement
+	| FOR "(" declaration expression_statement expression ")" statement
 	;
 
 jump_statement
-	: GOTO IDENTIFIER ';'
-	| CONTINUE ';'
-	| BREAK ';'
-	| RETURN ';'
-	| RETURN expression ';'
+	: GOTO IDENTIFIER ";"
+	| CONTINUE ";"
+	| BREAK ";"
+	| RETURN ";"
+	| RETURN expression ";"
 	;
 
 translation_unit
@@ -689,7 +672,7 @@ void yyerror(const char *s)
 
 void yy::parser::error (const location_type& l, const std::string& m)
 {
-   std::cerr << l << ": " << m << '\n';
+   std::cerr << l << ": " << m << "\n";
 }
 
 static llvm::AllocaInst *CreateEntryBlockAlloca(llvm::Function *TheFunction, const std::string &VarName) 
