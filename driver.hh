@@ -10,6 +10,9 @@
 
 YY_DECL;
 
+extern void start_parser();
+extern void end_parser();
+
 class driver
 {
     public:
@@ -25,7 +28,9 @@ class driver
             scan_begin ();
             yy::parser parse (*this);
             parse.set_debug_level (trace_parsing);
+            start_parser();
             int res = parse ();
+            end_parser();
             scan_end ();
             return res;
         }

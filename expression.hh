@@ -9,16 +9,58 @@ class PrimaryExpression
         enum Type
         {
             IDENTIFIER,
-            constant,
-            expression
+            RVALUE
         };
 
         std::string IDENTIFIERVal;
-        llvm::Constant *constantVal;
-        llvm::Value *expressionVal;
+        llvm::Value *rval;
 
         Type type;
+};
 
+class PostfixExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class UnaryExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class CastExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
 };
 
 #endif

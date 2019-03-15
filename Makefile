@@ -2,12 +2,12 @@
 # aim at portability.  It requires GNU Make.
 
 BISON=bison
-CXX=clang++
+CXX=g++
 FLEX=flex
 CXXFLAG=`llvm-config --cxxflags --ldflags --system-libs --libs core mcjit native` -std=c++14 -Wunknown-warning-option 
-CXXFLAGS=`llvm-config --cxxflags` -Wall -fexceptions -O2 -std=c++14 -Wno-unknown-warning-option
+CXXFLAGS=`llvm-config --cxxflags` -Wall -fexceptions -O2 -std=c++14 -Wno-unknown-warning-option -Wno-unused-function
 LINKFLAGS=`llvm-config --ldflags --libs` -lpthread -lncurses -std=c++14
-BISONFLAG=-Wno-other
+BISONFLAGS=-Wno-other
 HEADERS=constant.hh expression.hh common.hh
 
 all: noMiniC

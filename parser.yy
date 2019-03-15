@@ -17,10 +17,12 @@
     static std::unique_ptr<llvm::Module> TheModule;
     static std::map<std::string, llvm::AllocaInst *> NamedValues;
 //    static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
-
-
+    static void InitializeModuleAndPassManager();
     llvm::Value *LogErrorV(const char *Str);
     static llvm::AllocaInst *CreateEntryBlockAlloca(llvm::Function *TheFunction, const std::string &VarName);
+
+    void start_parser();
+    void end_parser();
 
 }
 
@@ -108,7 +110,12 @@
 %type<llvm::Constant *> constant
 %type<llvm::Value *> expression
 %type<PrimaryExpression> primary_expression
-%type<llvm::Value *> string
+%type<PostfixExpression> postfix_expression
+%type<UnaryExpression> unary_expression
+%type<CastExpression> cast_expression
+%type<char> unary_operator
+
+//%type<llvm::Value *> string
 
 %start translation_unit
 
@@ -118,23 +125,39 @@
 
 /*unit
     : Xexp 
+    {
+        llvm::Function *f = llvm::Function::Create(
+            llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), std::vector<llvm::Type*>(), false),
+            llvm::Function::ExternalLinkage,
+            "test",
+            TheModule.get()
+            );
+        llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", f);
+        Builder.SetInsertPoint(BB);
+        Builder.CreateRetVoid();
+        llvm::verifyFunction(*f);
+    }
 
 Xexp
     : primary_expression 
     { 
-        if($1.type == PrimaryExpression::Type::constant) 
-            std::cerr<<"constant:" <<*($1.constantVal->getUniqueInteger().getRawData())<<std::endl;
+        if($1.type == PrimaryExpression::Type::RVALUE) 
+        {
+            llvm::raw_os_ostream os(std::cout);
+            $1.rval->print(os);
+        }
         else if($1.type == PrimaryExpression::Type::IDENTIFIER )
             std::cerr<<"IDENTIFIER: "<<$1.IDENTIFIERVal<<std::endl;
     }
-    | Xexp PLUS Xexp 
+    ;*/
+    /*| Xexp PLUS Xexp 
     ;*/
 
 
 primary_expression
 	: IDENTIFIER{$$.type = PrimaryExpression::Type::IDENTIFIER; $$.IDENTIFIERVal = $1;}
-	| constant {$$.type = PrimaryExpression::Type::constant; $$.constantVal = $1;}
-	| "(" expression ")" {$$.type = PrimaryExpression::Type::expression; $$.expressionVal = $2;}
+	| constant {$$.type = PrimaryExpression::Type::RVALUE; $$.rval = $1;}
+	| "(" expression ")" {$$.type = PrimaryExpression::Type::RVALUE; $$.rval = $2;}
     ;
 	/*| generic_selection
 	| string
@@ -172,11 +195,12 @@ enumeration_constant		/* before it has been defined as such */
 	: IDENTIFIER
 	;
 
+
+/*
 string
 	: STRING_LITERAL
-    ;
-	/*| FUNC_NAME
-	;*/
+    | FUNC_NAME
+	;
 
 generic_selection
 	: GENERIC "(" assignment_expression "," generic_assoc_list ")"
@@ -191,19 +215,59 @@ generic_association
 	: type_name ":" assignment_expression
 	| DEFAULT ":" assignment_expression
 	;
+*/
 
 postfix_expression
-	: primary_expression
-	| postfix_expression "[" expression "]"
-	| postfix_expression "(" ")"
+	: primary_expression 
+    {
+        if($1.type == PrimaryExpression::Type::IDENTIFIER) 
+            $$.type = PostfixExpression::Type::IDENTIFIER;
+        else if( $1.type == PrimaryExpression::Type::RVALUE)
+            $$.type = PostfixExpression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal; 
+        $$.rval = $1.rval; 
+    }
+	| postfix_expression "(" ")"                                                //TODO: finish
 	| postfix_expression "(" argument_expression_list ")"
+	| postfix_expression INC_OP
+    {
+        if($1.type == PostfixExpression::Type::IDENTIFIER)
+            if(NamedValues.find($1.IDENTIFIERVal) != NamedValues.end())
+            {
+                llvm::Value *var = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+                llvm::Value *ans = nullptr;
+                if( var->getType()->isIntegerTy() )
+                    ans = Builder.CreateAdd(var, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 1, true)));
+                else if( var->getType()->isDoubleTy() )
+                    ans = Builder.CreateFAdd(var, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(1.0)));
+                $$.type = PostfixExpression::Type::RVALUE;
+                $$.rval = var;
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+            }
+    }
+	| postfix_expression DEC_OP
+    {
+        if($1.type == PostfixExpression::Type::IDENTIFIER)
+            if(NamedValues.find($1.IDENTIFIERVal) != NamedValues.end())
+            {
+                llvm::Value *var = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+                llvm::Value *ans = nullptr;
+                if( var->getType()->isIntegerTy() )
+                    ans = Builder.CreateSub(var, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 1, true)));
+                else if( var->getType()->isDoubleTy() )
+                    ans = Builder.CreateFSub(var, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(1.0)));
+                $$.type = PostfixExpression::Type::RVALUE;
+                $$.rval = var;
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+            }
+    }
+    ;
+	/*| postfix_expression "[" expression "]"
 	| postfix_expression "." IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER
-	| postfix_expression INC_OP
-	| postfix_expression DEC_OP
 	| "(" type_name ")" "{" initializer_list "}"
 	| "(" type_name ")" "{" initializer_list "," "}"
-	;
+	;*/
 
 argument_expression_list
 	: assignment_expression
@@ -212,27 +276,105 @@ argument_expression_list
 
 unary_expression
 	: postfix_expression
+    {
+        if($1.type == PostfixExpression::Type::IDENTIFIER )
+            $$.type = UnaryExpression::Type::IDENTIFIER;
+        else if( $1.type == PostfixExpression::RVALUE )
+            $$.type = UnaryExpression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| INC_OP unary_expression
+    {
+        if($2.type == UnaryExpression::Type::IDENTIFIER)
+            if(NamedValues.find($2.IDENTIFIERVal) != NamedValues.end())
+            {
+                llvm::Value *var = Builder.CreateLoad(NamedValues[$2.IDENTIFIERVal], $2.IDENTIFIERVal.c_str());
+                llvm::Value *ans = nullptr;
+                if( var->getType()->isIntegerTy() )
+                    ans = Builder.CreateAdd(var, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 1, true)));
+                else if( var->getType()->isDoubleTy() )
+                    ans = Builder.CreateFAdd(var, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(1.0)));
+                $$.type = UnaryExpression::Type::RVALUE;
+                $$.rval = ans;
+                Builder.CreateStore(ans, NamedValues[$2.IDENTIFIERVal]);
+            }
+    }
 	| DEC_OP unary_expression
+    {
+        if($2.type == UnaryExpression::Type::IDENTIFIER)
+            if(NamedValues.find($2.IDENTIFIERVal) != NamedValues.end())
+            {
+                llvm::Value *var = Builder.CreateLoad(NamedValues[$2.IDENTIFIERVal], $2.IDENTIFIERVal.c_str());
+                llvm::Value *ans = nullptr;
+                if( var->getType()->isIntegerTy() )
+                    ans = Builder.CreateSub(var, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 1, true)));
+                else if( var->getType()->isDoubleTy() )
+                    ans = Builder.CreateFSub(var, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(1.0)));
+                $$.type = UnaryExpression::Type::RVALUE;
+                $$.rval = ans;
+                Builder.CreateStore(ans, NamedValues[$2.IDENTIFIERVal]);
+            }
+    }
 	| unary_operator cast_expression
-	| SIZEOF unary_expression
+    {
+        llvm::Value *var;
+        if($2.type == CastExpression::Type::IDENTIFIER)
+            var = Builder.CreateLoad(NamedValues[$2.IDENTIFIERVal], $2.IDENTIFIERVal.c_str());
+        else if($2.type == CastExpression::Type::RVALUE)
+            var = $2.rval;
+        $$.type = UnaryExpression::Type::RVALUE;
+
+        switch($1)
+        {
+            case '-': // in LLVM Neg means SUB and Not means XOR
+                if(var->getType()->isIntegerTy())
+                    $$.rval = Builder.CreateNeg(var);
+                else if(var->getType()->isDoubleTy())
+                    $$.rval = Builder.CreateFNeg(var);
+                break;
+            case '+':
+                $$.rval = var;
+                break;
+            case '!':
+                if(var->getType()->isIntegerTy())
+                    $$.rval = Builder.CreateICmpEQ(var, llvm::Constant::getNullValue(llvm::Type::getInt32Ty(TheContext)));
+                break;
+            case '~':
+                if(var->getType()->isIntegerTy())
+                    $$.rval = Builder.CreateNot(var);
+                break;
+        }
+    }
+    ;
+	/*| SIZEOF unary_expression
 	| SIZEOF "(" type_name ")"
 	| ALIGNOF "(" type_name ")"
-	;
+	;*/
 
 unary_operator
-	: "&"
+    : "-" {$$ = '-';}
+    | "+" {$$ = '+';}
+    | "!" {$$ = '!';}
+    | "~" {$$ = '~';}
+    ;
+	/*: "&"
 	| "*"
-	| "+"
-	| "-"
-	| "~"
-	| "!"
-	;
+	;*/
 
 cast_expression
 	: unary_expression
-	| "(" type_name ")" cast_expression
-	;
+    {
+        if($1.type == UnaryExpression::Type::IDENTIFIER )
+            $$.type = CastExpression::Type::IDENTIFIER;
+        else if( $1.type == UnaryExpression::RVALUE )
+            $$.type = CastExpression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
+    ;
+	/*| "(" type_name ")" cast_expression
+	;*/
 
 multiplicative_expression
 	: cast_expression
@@ -675,10 +817,11 @@ void yy::parser::error (const location_type& l, const std::string& m)
    std::cerr << l << ": " << m << "\n";
 }
 
-static llvm::AllocaInst *CreateEntryBlockAlloca(llvm::Function *TheFunction, const std::string &VarName) 
+static llvm::AllocaInst *CreateEntryBlockAlloca(llvm::Type *TheType, llvm::Function *TheFunction, const std::string &VarName) 
 {
-  llvm::IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
-  return TmpB.CreateAlloca(llvm::Type::getDoubleTy(TheContext), 0, VarName.c_str());
+    return llvm::IRBuilder<>(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin()).CreateAlloca(TheType, 0, VarName.c_str());
+  //llvm::IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
+  //return TmpB.CreateAlloca(TheType, 0, VarName.c_str());
 }
 
 llvm::Value *LogErrorV(const char *Str) 
@@ -687,4 +830,72 @@ llvm::Value *LogErrorV(const char *Str)
   return nullptr;
 }
 
+void InitializeModuleAndPassManager() {
+  // Open a new module.
+  TheModule = llvm::make_unique<llvm::Module>("my cool jit", TheContext);
+}
+
+void start_parser()
+{
+    InitializeModuleAndPassManager();
+}
+
+void end_parser()
+{
+    using namespace llvm;
+    using namespace llvm::sys;
+    InitializeAllTargetInfos();
+  InitializeAllTargets();
+  InitializeAllTargetMCs();
+  InitializeAllAsmParsers();
+  InitializeAllAsmPrinters();
+
+  auto TargetTriple = sys::getDefaultTargetTriple();
+  TheModule->setTargetTriple(TargetTriple);
+
+  std::string Error;
+  auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
+
+  // Print an error and exit if we couldn't find the requested target.
+  // This generally occurs if we've forgotten to initialise the
+  // TargetRegistry or we have a bogus target triple.
+  if (!Target) {
+    errs() << Error;
+    return ;
+  }
+
+  auto CPU = "generic";
+  auto Features = "";
+
+  TargetOptions opt;
+  auto RM = Optional<Reloc::Model>();
+  auto TheTargetMachine =
+      Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM); //Crash
+
+  TheModule->setDataLayout(TheTargetMachine->createDataLayout());
+
+  auto Filename = "output.o";
+  std::error_code EC;
+  raw_fd_ostream dest(Filename, EC, sys::fs::F_None);
+
+  if (EC) {
+    errs() << "Could not open file: " << EC.message();
+    return ;
+  }
+
+  legacy::PassManager pass;
+  auto FileType = TargetMachine::CGFT_ObjectFile;
+
+  if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+    errs() << "TheTargetMachine can't emit a file of this type";
+    return ;
+  }
+
+  pass.run(*TheModule);
+  dest.flush();
+
+  outs() << "Wrote " << Filename << "\n";
+
+  return ;
+}
 
