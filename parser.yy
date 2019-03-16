@@ -117,16 +117,16 @@
 
 //%type<llvm::Value *> string
 
-%start translation_unit
+//%start translation_unit
 
-//%type<llvm::APInt> Xexp
-//%start unit
+%type<llvm::APInt> Xexp
+%start unit
 %%
 
-/*unit
+unit
     : Xexp 
     {
-        llvm::Function *f = llvm::Function::Create(
+        /*llvm::Function *f = llvm::Function::Create(
             llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), std::vector<llvm::Type*>(), false),
             llvm::Function::ExternalLinkage,
             "test",
@@ -135,23 +135,23 @@
         llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", f);
         Builder.SetInsertPoint(BB);
         Builder.CreateRetVoid();
-        llvm::verifyFunction(*f);
+        llvm::verifyFunction(*f);*/
     }
 
 Xexp
-    : primary_expression 
+    : unary_expression
     { 
-        if($1.type == PrimaryExpression::Type::RVALUE) 
+        if($1.type == UnaryExpression::Type::RVALUE) 
         {
             llvm::raw_os_ostream os(std::cout);
             $1.rval->print(os);
+            os<<"\n";
         }
-        else if($1.type == PrimaryExpression::Type::IDENTIFIER )
+        else if($1.type == UnaryExpression::Type::IDENTIFIER )
             std::cerr<<"IDENTIFIER: "<<$1.IDENTIFIERVal<<std::endl;
     }
-    ;*/
-    /*| Xexp PLUS Xexp 
-    ;*/
+    | Xexp PLUS Xexp 
+    ;
 
 
 primary_expression

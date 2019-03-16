@@ -30,7 +30,7 @@ class driver
             parse.set_debug_level (trace_parsing);
             start_parser();
             int res = parse ();
-            end_parser();
+            //end_parser();
             scan_end ();
             return res;
         }
