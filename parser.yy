@@ -119,6 +119,9 @@
 %type<RelationalExpression> relational_expression
 %type<EqualityExpression> equality_expression
 %type<AndExpression> and_expression
+%type<ExclusiveOrExpression> exclusive_or_expression
+%type<InclusiveOrExpression> inclusive_or_expression
+%type<LogicalAndExpression> logical_and_expression
 
 //%type<llvm::Value *> string
 
@@ -880,22 +883,133 @@ equality_expression
 
 and_expression
 	: equality_expression
+    {
+        if($1.type == EqualityExpression::Type::IDENTIFIER)
+            $$.type = AndExpression::Type::IDENTIFIER;
+        else if($1.type == EqualityExpression::Type::RVALUE)
+            $$.type = AndExpression::Type::RVALUE;
+
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| and_expression "&" equality_expression
+    {
+        llvm::Value *var_and = nullptr;
+        llvm::Value *var_equality = nullptr;
+        if($1.type == AndExpression::Type::IDENTIFIER )
+            var_and = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == AndExpression::Type::RVALUE)
+            var_and = $1.rval;
+
+        if($3.type == EqualityExpression::Type::IDENTIFIER)
+            var_equality = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == EqualityExpression::Type::RVALUE)
+            var_equality = $3.rval;
+        
+        $$.type = AndExpression::Type::RVALUE;
+
+        if(var_and->getType()->isIntegerTy() && var_equality->getType()->isIntegerTy())
+            $$.rval = Builder.CreateAnd(var_and, var_equality);
+            
+    }
 	;
 
 exclusive_or_expression
 	: and_expression
+    {
+        if($1.type == AndExpression::Type::IDENTIFIER)
+            $$.type = ExclusiveOrExpression::Type::IDENTIFIER;
+        else if($1.type == AndExpression::Type::RVALUE)
+            $$.type = ExclusiveOrExpression::Type::RVALUE;
+
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| exclusive_or_expression "^" and_expression
+    {
+        llvm::Value *var_exclusive = nullptr;
+        llvm::Value *var_and = nullptr;
+        if($1.type == ExclusiveOrExpression::Type::IDENTIFIER )
+            var_exclusive = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == ExclusiveOrExpression::Type::RVALUE)
+            var_exclusive = $1.rval;
+
+        if($3.type == AndExpression::Type::IDENTIFIER)
+            var_and = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == AndExpression::Type::RVALUE)
+            var_and = $3.rval;
+        
+        $$.type = ExclusiveOrExpression::Type::RVALUE;
+
+        if(var_exclusive->getType()->isIntegerTy() && var_and->getType()->isIntegerTy())
+            $$.rval = Builder.CreateXor(var_exclusive, var_and);
+        
+    }
 	;
 
 inclusive_or_expression
 	: exclusive_or_expression
+    {
+        if($1.type == ExclusiveOrExpression::Type::IDENTIFIER)
+            $$.type = InclusiveOrExpression::Type::IDENTIFIER;
+        else if($1.type == ExclusiveOrExpression::Type::RVALUE)
+            $$.type = InclusiveOrExpression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| inclusive_or_expression "|" exclusive_or_expression
+    {
+        llvm::Value *var_inclusive = nullptr;
+        llvm::Value *var_exclusive = nullptr;
+        if($1.type == InclusiveOrExpression::Type::IDENTIFIER )
+            var_inclusive = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == InclusiveOrExpression::Type::RVALUE)
+            var_inclusive = $1.rval;
+
+        if($3.type == ExclusiveOrExpression::Type::IDENTIFIER)
+            var_exclusive = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == ExclusiveOrExpression::Type::RVALUE)
+            var_exclusive = $3.rval;
+        
+        $$.type = InclusiveOrExpression::Type::RVALUE;
+
+        if(var_exclusive->getType()->isIntegerTy() && var_inclusive->getType()->isIntegerTy())
+            $$.rval = Builder.CreateOr(var_inclusive, var_exclusive);
+
+    }
 	;
 
 logical_and_expression
 	: inclusive_or_expression
+    {
+        if($1.type == InclusiveOrExpression::Type::IDENTIFIER)
+            $$.type = LogicalAndExpression::Type::IDENTIFIER;
+        else if($1.type == InclusiveOrExpression::Type::RVALUE)
+            $$.type = LogicalAndExpression::Type::RVALUE;
+    }
 	| logical_and_expression AND_OP inclusive_or_expression
+    {
+        llvm::Value *var_logical = nullptr;
+        llvm::Value *var_inclusive = nullptr;
+        if($1.type == LogicalAndExpression::Type::IDENTIFIER )
+            var_logical = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == LogicalAndExpression::Type::RVALUE)
+            var_logical = $1.rval;
+        if($3.type == InclusiveOrExpression::Type::IDENTIFIER)
+            var_inclusive = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == InclusiveOrExpression::Type::RVALUE)
+            var_inclusive = $3.rval;
+        
+        $$.type = LogicalAndExpression::Type::RVALUE;
+        
+        $$.rval = Builder.CreateIntCast(
+            Builder.CreateAnd(
+                (var_logical->getType()->isIntegerTy()  ? Builder.CreateICmpNE(var_logical,llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)))
+                                                        : Builder.CreateFCmpONE(var_logical, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(0.0)))),
+                (var_inclusive->getType()->isIntegerTy()?Builder.CreateICmpNE(var_inclusive, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)))
+                                                        : Builder.CreateFCmpONE(var_inclusive,llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(0.0))))),
+           llvm::Type::getInt32Ty(TheContext),true);
+    }
 	;
 
 logical_or_expression

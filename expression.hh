@@ -150,5 +150,44 @@ class AndExpression
         Type type;
 };
 
+class ExclusiveOrExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+class InclusiveOrExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+class LogicalAndExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        Type type;
+};
+
 
 #endif
