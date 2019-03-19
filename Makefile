@@ -30,4 +30,4 @@ parser.o: parser.hh $(HEADERS)
 scanner.o: parser.hh $(HEADERS)
 
 clean:
-	rm -f noMiniC *.o parser.hh parser.cc scanner.cc location.hh
+	rm -f noMiniC *.o parser.hh parser.cc scanner.cc location.hh parser.tab.cc parser.tab.hh

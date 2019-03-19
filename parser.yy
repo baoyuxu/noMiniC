@@ -51,8 +51,7 @@
         COLON                   ":"
         EQ                      "="
         LEFT_PARENTHESIS        "("
-        RIGHT_PARAENTHESIS      ")"
-        LEFT_BRACKETS           "["
+        RIGHT_PARAENTHESIS      ")" LEFT_BRACKETS           "["
         RIGHT_BRACKETS          "]"
         DOT                     "."
         AND_BY_BIT              "&"
@@ -114,19 +113,25 @@
 %type<UnaryExpression> unary_expression
 %type<CastExpression> cast_expression
 %type<char> unary_operator
+%type<MultiplicativeExpression> multiplicative_expression
+%type<AdditiveExpression> additive_expression
+%type<ShiftExpression> shift_expression
+%type<RelationalExpression> relational_expression
+%type<EqualityExpression> equality_expression
+%type<AndExpression> and_expression
 
 //%type<llvm::Value *> string
 
-//%start translation_unit
+%start translation_unit
 
-%type<llvm::APInt> Xexp
-%start unit
+//%type<llvm::APInt> Xexp
+//%start unit
 %%
 
-unit
+/*unit
     : Xexp 
     {
-        /*llvm::Function *f = llvm::Function::Create(
+        llvm::Function *f = llvm::Function::Create(
             llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), std::vector<llvm::Type*>(), false),
             llvm::Function::ExternalLinkage,
             "test",
@@ -135,7 +140,7 @@ unit
         llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", f);
         Builder.SetInsertPoint(BB);
         Builder.CreateRetVoid();
-        llvm::verifyFunction(*f);*/
+        llvm::verifyFunction(*f);
     }
 
 Xexp
@@ -151,7 +156,7 @@ Xexp
             std::cerr<<"IDENTIFIER: "<<$1.IDENTIFIERVal<<std::endl;
     }
     | Xexp PLUS Xexp 
-    ;
+    ;*/
 
 
 primary_expression
@@ -378,35 +383,499 @@ cast_expression
 
 multiplicative_expression
 	: cast_expression
+    {
+        if( $1.type == CastExpression::Type::IDENTIFIER )
+            $$.type = MultiplicativeExpression::Type::IDENTIFIER;
+        else if( $1.type == CastExpression::Type::RVALUE )
+            $$.type = MultiplicativeExpression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| multiplicative_expression "*" cast_expression
+    {
+        llvm::Value *var_multiplicative = nullptr;
+        llvm::Value *var_cast = nullptr;
+        if( $1.type == MultiplicativeExpression::Type::IDENTIFIER )
+            var_multiplicative = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if( $1.type == MultiplicativeExpression::Type::RVALUE )
+            var_multiplicative = $1.rval;
+
+        if( $3.type == CastExpression::Type::IDENTIFIER )
+            var_cast = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if( $3.type == CastExpression::Type::RVALUE )
+            var_cast = $3.rval;
+
+        $$.type = MultiplicativeExpression::Type::RVALUE;
+
+        if( var_multiplicative->getType()->isDoubleTy() && var_cast->getType()->isIntegerTy())
+        {
+            var_cast = Builder.CreateSIToFP(var_cast, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_multiplicative->getType()->isIntegerTy() && var_cast->getType()->isDoubleTy() )
+        {
+            var_multiplicative = Builder.CreateSIToFP(var_multiplicative, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_multiplicative->getType()->isDoubleTy() && var_cast->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateFMul(var_multiplicative, var_cast);
+        }
+        else if(var_multiplicative->getType()->isIntegerTy() && var_cast->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateMul(var_multiplicative, var_cast);
+        }
+
+    }
 	| multiplicative_expression "/" cast_expression
+    {
+        llvm::Value *var_multiplicative = nullptr;
+        llvm::Value *var_cast = nullptr;
+        if( $1.type == MultiplicativeExpression::Type::IDENTIFIER )
+            var_multiplicative = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if( $1.type == MultiplicativeExpression::Type::RVALUE )
+            var_multiplicative = $1.rval;
+
+        if( $3.type == CastExpression::Type::IDENTIFIER )
+            var_cast = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if( $3.type == CastExpression::Type::RVALUE )
+            var_cast = $3.rval;
+
+        $$.type = MultiplicativeExpression::Type::RVALUE;
+
+        if( var_multiplicative->getType()->isDoubleTy() && var_cast->getType()->isIntegerTy())
+        {
+            var_cast = Builder.CreateSIToFP(var_cast, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_multiplicative->getType()->isIntegerTy() && var_cast->getType()->isDoubleTy() )
+        {
+            var_multiplicative = Builder.CreateSIToFP(var_multiplicative, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_multiplicative->getType()->isDoubleTy() && var_cast->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateFDiv(var_multiplicative, var_cast);
+        }
+        else if(var_multiplicative->getType()->isIntegerTy() && var_cast->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateSDiv(var_multiplicative, var_cast);
+        }
+    }
 	| multiplicative_expression "%" cast_expression
+    {
+        llvm::Value *var_multiplicative = nullptr;
+        llvm::Value *var_cast = nullptr;
+        if( $1.type == MultiplicativeExpression::Type::IDENTIFIER )
+            var_multiplicative = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if( $1.type == MultiplicativeExpression::Type::RVALUE )
+            var_multiplicative = $1.rval;
+
+        if( $3.type == CastExpression::Type::IDENTIFIER )
+            var_cast = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if( $3.type == CastExpression::Type::RVALUE )
+            var_cast = $3.rval;
+
+        $$.type = MultiplicativeExpression::Type::RVALUE;
+
+        if( var_multiplicative->getType()->isDoubleTy() && var_cast->getType()->isIntegerTy())
+        {
+            var_cast = Builder.CreateSIToFP(var_cast, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_multiplicative->getType()->isIntegerTy() && var_cast->getType()->isDoubleTy() )
+        {
+            var_multiplicative = Builder.CreateSIToFP(var_multiplicative, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_multiplicative->getType()->isDoubleTy() && var_cast->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateFRem(var_multiplicative, var_cast);
+        }
+        else if(var_multiplicative->getType()->isIntegerTy() && var_cast->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateSRem(var_multiplicative, var_cast);
+        }
+    }
 	;
 
 additive_expression
 	: multiplicative_expression
+    {
+        if( $1.type ==  MultiplicativeExpression::Type::IDENTIFIER )
+            $$.type = AdditiveExpression::Type::IDENTIFIER;
+        else if( $1.type == MultiplicativeExpression::Type::RVALUE )
+            $$.type = AdditiveExpression::Type::RVALUE;
+
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| additive_expression "+" multiplicative_expression
+    {
+        llvm::Value *var_additive = nullptr;
+        llvm::Value *var_multiplicative = nullptr;
+        if( $1.type == AdditiveExpression::Type::IDENTIFIER )
+            var_additive = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if( $1.type == AdditiveExpression::Type::RVALUE )
+            var_additive = $1.rval;
+
+        if( $3.type == MultiplicativeExpression::Type::IDENTIFIER )
+            var_multiplicative = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if( $3.type == MultiplicativeExpression::Type::RVALUE )
+            var_multiplicative = $3.rval;
+
+        $$.type = AdditiveExpression::Type::RVALUE;
+
+        if( var_multiplicative->getType()->isDoubleTy() && var_additive->getType()->isIntegerTy())
+        {
+            var_additive = Builder.CreateSIToFP(var_additive, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_multiplicative->getType()->isIntegerTy() && var_additive->getType()->isDoubleTy() )
+        {
+            var_multiplicative = Builder.CreateSIToFP(var_multiplicative, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_multiplicative->getType()->isDoubleTy() && var_additive->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateFAdd(var_multiplicative, var_additive);
+        }
+        else if(var_multiplicative->getType()->isIntegerTy() && var_additive->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateAdd(var_multiplicative, var_additive);
+        }
+    
+    }
 	| additive_expression "-" multiplicative_expression
+    {
+        llvm::Value *var_additive = nullptr;
+        llvm::Value *var_multiplicative = nullptr;
+        if( $1.type == AdditiveExpression::Type::IDENTIFIER )
+            var_additive = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if( $1.type == AdditiveExpression::Type::RVALUE )
+            var_additive = $1.rval;
+
+        if( $3.type == MultiplicativeExpression::Type::IDENTIFIER )
+            var_multiplicative = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if( $3.type == MultiplicativeExpression::Type::RVALUE )
+            var_multiplicative = $3.rval;
+
+        $$.type = AdditiveExpression::Type::RVALUE;
+
+        if( var_multiplicative->getType()->isDoubleTy() && var_additive->getType()->isIntegerTy())
+        {
+            var_additive = Builder.CreateSIToFP(var_additive, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_multiplicative->getType()->isIntegerTy() && var_additive->getType()->isDoubleTy() )
+        {
+            var_multiplicative = Builder.CreateSIToFP(var_multiplicative, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_multiplicative->getType()->isDoubleTy() && var_additive->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateFSub( var_additive, var_multiplicative);
+        }
+        else if(var_multiplicative->getType()->isIntegerTy() && var_additive->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateSub(var_additive, var_multiplicative);
+        }
+        
+    }
 	;
 
 shift_expression
 	: additive_expression
+    {
+        if($1.type == AdditiveExpression::Type::IDENTIFIER)
+            $$.type = ShiftExpression::Type::IDENTIFIER;
+        else if( $1.type == AdditiveExpression::Type::RVALUE)
+            $$.type = ShiftExpression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| shift_expression LEFT_OP additive_expression
+    {
+        llvm::Value *var_shift = nullptr;
+        llvm::Value *var_additive = nullptr;
+        if( $1.type == ShiftExpression::Type::IDENTIFIER )
+            var_shift = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if( $1.type == ShiftExpression::Type::RVALUE )
+            var_shift = $1.rval;
+
+        if( $3.type == AdditiveExpression::Type::IDENTIFIER )
+            var_additive = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if( $3.type == AdditiveExpression::Type::RVALUE )
+            var_additive = $3.rval;
+
+        $$.type = ShiftExpression::Type::RVALUE;
+
+        if( var_shift->getType()->isIntegerTy() && var_additive->getType()->isIntegerTy() )
+            $$.rval = Builder.CreateShl(var_shift, var_additive);
+            
+    }
 	| shift_expression RIGHT_OP additive_expression
+    {
+        llvm::Value *var_shift = nullptr;
+        llvm::Value *var_additive = nullptr;
+        if($1.type == ShiftExpression::Type::IDENTIFIER )
+            var_shift = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == ShiftExpression::Type::RVALUE)
+            var_shift = $1.rval;
+
+        if($3.type == AdditiveExpression::Type::IDENTIFIER)
+            var_additive = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == AdditiveExpression::Type::RVALUE)
+            var_additive = $3.rval;
+        
+        $$.type = ShiftExpression::Type::RVALUE;
+
+        if(var_shift->getType()->isIntegerTy() && var_additive->getType()->isIntegerTy())
+            $$.rval = Builder.CreateAShr(var_shift, var_additive);
+    }
 	;
 
 relational_expression
 	: shift_expression
+    {
+        if($1.type == ShiftExpression::Type::IDENTIFIER)
+            $$.type = RelationalExpression::Type::IDENTIFIER;
+        else if($1.type == ShiftExpression::Type::RVALUE)
+            $$.type = RelationalExpression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| relational_expression "<" shift_expression
+    {
+        llvm::Value *var_relational = nullptr;
+        llvm::Value *var_shift = nullptr;
+        if($1.type == RelationalExpression::Type::IDENTIFIER )
+            var_relational = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == RelationalExpression::Type::RVALUE)
+            var_relational = $1.rval;
+
+        if($3.type == ShiftExpression::Type::IDENTIFIER)
+            var_shift = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == ShiftExpression::Type::RVALUE)
+            var_shift = $3.rval;
+
+        $$.type = RelationalExpression::Type::RVALUE;
+        if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isIntegerTy())
+        {
+            var_shift = Builder.CreateSIToFP(var_shift, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_relational->getType()->isIntegerTy() && var_shift->getType()->isDoubleTy() )
+        {
+            var_relational = Builder.CreateSIToFP(var_relational, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateFCmpOLT( var_relational, var_shift),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+        else if(var_relational->getType()->isIntegerTy() && var_shift->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateICmpSLT( var_relational, var_shift),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+
+    }
 	| relational_expression ">" shift_expression
+    {
+        llvm::Value *var_relational = nullptr;
+        llvm::Value *var_shift = nullptr;
+        if($1.type == RelationalExpression::Type::IDENTIFIER )
+            var_relational = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == RelationalExpression::Type::RVALUE)
+            var_relational = $1.rval;
+
+        if($3.type == ShiftExpression::Type::IDENTIFIER)
+            var_shift = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == ShiftExpression::Type::RVALUE)
+            var_shift = $3.rval;
+
+        $$.type = RelationalExpression::Type::RVALUE;
+        if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isIntegerTy())
+        {
+            var_shift = Builder.CreateSIToFP(var_shift, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_relational->getType()->isIntegerTy() && var_shift->getType()->isDoubleTy() )
+        {
+            var_relational = Builder.CreateSIToFP(var_relational, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateFCmpOGT( var_relational, var_shift),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+        else if(var_relational->getType()->isIntegerTy() && var_shift->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateICmpSGT( var_relational, var_shift),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+    }
 	| relational_expression LE_OP shift_expression
+    {
+        llvm::Value *var_relational = nullptr;
+        llvm::Value *var_shift = nullptr;
+        if($1.type == RelationalExpression::Type::IDENTIFIER )
+            var_relational = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == RelationalExpression::Type::RVALUE)
+            var_relational = $1.rval;
+
+        if($3.type == ShiftExpression::Type::IDENTIFIER)
+            var_shift = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == ShiftExpression::Type::RVALUE)
+            var_shift = $3.rval;
+
+        $$.type = RelationalExpression::Type::RVALUE;
+        if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isIntegerTy())
+        {
+            var_shift = Builder.CreateSIToFP(var_shift, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_relational->getType()->isIntegerTy() && var_shift->getType()->isDoubleTy() )
+        {
+            var_relational = Builder.CreateSIToFP(var_relational, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateFCmpOLE( var_relational, var_shift),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+        else if(var_relational->getType()->isIntegerTy() && var_shift->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateICmpSLE( var_relational, var_shift),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+    }
 	| relational_expression GE_OP shift_expression
+    {
+        llvm::Value *var_relational = nullptr;
+        llvm::Value *var_shift = nullptr;
+        if($1.type == RelationalExpression::Type::IDENTIFIER )
+            var_relational = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == RelationalExpression::Type::RVALUE)
+            var_relational = $1.rval;
+
+        if($3.type == ShiftExpression::Type::IDENTIFIER)
+            var_shift = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == ShiftExpression::Type::RVALUE)
+            var_shift = $3.rval;
+
+        $$.type = RelationalExpression::Type::RVALUE;
+        if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isIntegerTy())
+        {
+            var_shift = Builder.CreateSIToFP(var_shift, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_relational->getType()->isIntegerTy() && var_shift->getType()->isDoubleTy() )
+        {
+            var_relational = Builder.CreateSIToFP(var_relational, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateFCmpOGE( var_relational, var_shift),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+        else if(var_relational->getType()->isIntegerTy() && var_shift->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateICmpSGE( var_relational, var_shift),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+    }
 	;
 
 equality_expression
 	: relational_expression
+    {
+        if($1.type == RelationalExpression::Type::IDENTIFIER)
+            $$.type = EqualityExpression::Type::IDENTIFIER;
+        else if($1.type == RelationalExpression::Type::RVALUE)
+            $$.type = EqualityExpression::Type::RVALUE;
+        
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| equality_expression EQ_OP relational_expression
+    {
+        llvm::Value *var_equality = nullptr;
+        llvm::Value *var_relational = nullptr;
+        if($1.type == EqualityExpression::Type::IDENTIFIER )
+            var_equality = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == EqualityExpression::Type::RVALUE)
+            var_equality = $1.rval;
+
+        if($3.type == RelationalExpression::Type::IDENTIFIER)
+            var_relational = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == RelationalExpression::Type::RVALUE)
+            var_relational = $3.rval;
+
+        $$.type = EqualityExpression::Type::RVALUE;
+        if( var_equality->getType()->isDoubleTy() && var_relational->getType()->isIntegerTy())
+        {
+            var_relational = Builder.CreateSIToFP(var_relational, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_equality->getType()->isIntegerTy() && var_relational->getType()->isDoubleTy() )
+        {
+            var_equality = Builder.CreateSIToFP(var_equality, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_equality->getType()->isDoubleTy() && var_relational->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateFCmpOEQ( var_equality, var_relational),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+        else if(var_equality->getType()->isIntegerTy() && var_relational->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateICmpEQ( var_equality, var_relational),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+    }
 	| equality_expression NE_OP relational_expression
+    {
+        llvm::Value *var_equality = nullptr;
+        llvm::Value *var_relational = nullptr;
+        if($1.type == EqualityExpression::Type::IDENTIFIER )
+            var_equality = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == EqualityExpression::Type::RVALUE)
+            var_equality = $1.rval;
+
+        if($3.type == RelationalExpression::Type::IDENTIFIER)
+            var_relational = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == RelationalExpression::Type::RVALUE)
+            var_relational = $3.rval;
+
+        $$.type = EqualityExpression::Type::RVALUE;
+        if( var_equality->getType()->isDoubleTy() && var_relational->getType()->isIntegerTy())
+        {
+            var_relational = Builder.CreateSIToFP(var_relational, llvm::Type::getDoubleTy(TheContext));
+        }
+        else if( var_equality->getType()->isIntegerTy() && var_relational->getType()->isDoubleTy() )
+        {
+            var_equality = Builder.CreateSIToFP(var_equality, llvm::Type::getDoubleTy(TheContext));
+        }
+
+        if( var_equality->getType()->isDoubleTy() && var_relational->getType()->isDoubleTy() )
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateFCmpONE( var_equality, var_relational),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+        else if(var_equality->getType()->isIntegerTy() && var_relational->getType()->isIntegerTy())
+        {
+            $$.rval = Builder.CreateIntCast(
+                Builder.CreateICmpNE( var_equality, var_relational),
+                llvm::Type::getInt32Ty(TheContext), true);
+        }
+    }
 	;
 
 and_expression

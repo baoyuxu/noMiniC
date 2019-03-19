@@ -63,4 +63,92 @@ class CastExpression
         Type type;
 };
 
+class MultiplicativeExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class AdditiveExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class ShiftExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        
+        Type type;
+};
+
+class RelationalExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class EqualityExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class AndExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+
 #endif
