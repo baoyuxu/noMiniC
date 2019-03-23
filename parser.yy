@@ -107,7 +107,6 @@
 %token END  0 "end of file"
 
 %type<llvm::Constant *> constant
-%type<llvm::Value *> expression
 %type<PrimaryExpression> primary_expression
 %type<PostfixExpression> postfix_expression
 %type<UnaryExpression> unary_expression
@@ -122,6 +121,11 @@
 %type<ExclusiveOrExpression> exclusive_or_expression
 %type<InclusiveOrExpression> inclusive_or_expression
 %type<LogicalAndExpression> logical_and_expression
+%type<LogicalOrExpression> logical_or_expression
+%type<ConditionalExpression> conditional_expression
+%type<AssignmentExpression> assignment_expression
+%type<AssignmentOperator> assignment_operator
+%type<Expression> expression
 
 //%type<llvm::Value *> string
 
@@ -165,7 +169,14 @@ Xexp
 primary_expression
 	: IDENTIFIER{$$.type = PrimaryExpression::Type::IDENTIFIER; $$.IDENTIFIERVal = $1;}
 	| constant {$$.type = PrimaryExpression::Type::RVALUE; $$.rval = $1;}
-	| "(" expression ")" {$$.type = PrimaryExpression::Type::RVALUE; $$.rval = $2;}
+	| "(" expression ")" 
+    {
+        $$.type = PrimaryExpression::Type::RVALUE; 
+        if($2.type == Expression::Type::IDENTIFIER) 
+            $$.rval = Builder.CreateLoad(NamedValues[$2.IDENTIFIERVal], $2.IDENTIFIERVal.c_str()); 
+        else if($2.type == Expression::Type::RVALUE) 
+            $$.rval = $2.rval; 
+    }
     ;
 	/*| generic_selection
 	| string
@@ -303,9 +314,9 @@ unary_expression
                     ans = Builder.CreateAdd(var, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 1, true)));
                 else if( var->getType()->isDoubleTy() )
                     ans = Builder.CreateFAdd(var, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(1.0)));
-                $$.type = UnaryExpression::Type::RVALUE;
-                $$.rval = ans;
-                Builder.CreateStore(ans, NamedValues[$2.IDENTIFIERVal]);
+                $$.type = UnaryExpression::Type::IDENTIFIER;
+                $$.rval = Builder.CreateStore(ans, NamedValues[$2.IDENTIFIERVal]);
+                
             }
     }
 	| DEC_OP unary_expression
@@ -319,9 +330,9 @@ unary_expression
                     ans = Builder.CreateSub(var, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 1, true)));
                 else if( var->getType()->isDoubleTy() )
                     ans = Builder.CreateFSub(var, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(1.0)));
-                $$.type = UnaryExpression::Type::RVALUE;
-                $$.rval = ans;
-                Builder.CreateStore(ans, NamedValues[$2.IDENTIFIERVal]);
+                $$.type = UnaryExpression::Type::IDENTIFIER;
+                $$.rval = Builder.CreateStore(ans, NamedValues[$2.IDENTIFIERVal]);
+                
             }
     }
 	| unary_operator cast_expression
@@ -1013,42 +1024,379 @@ logical_and_expression
 	;
 
 logical_or_expression
-	: logical_and_expression
+	: logical_and_expression 
+    {
+        if($1.type == LogicalAndExpression::Type::IDENTIFIER)
+            $$.type = LogicalOrExpression::Type::IDENTIFIER;
+        else if($1.type == LogicalAndExpression::Type::RVALUE)
+            $$.type = LogicalOrExpression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| logical_or_expression OR_OP logical_and_expression
+    {
+        llvm::Value *var_logical_or = nullptr;
+        llvm::Value *var_logical_and = nullptr;
+        if($1.type == LogicalOrExpression::Type::IDENTIFIER )
+            var_logical_or = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == LogicalOrExpression::Type::RVALUE)
+            var_logical_or = $1.rval;
+        if($3.type == LogicalAndExpression::Type::IDENTIFIER)
+            var_logical_and = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == LogicalAndExpression::Type::RVALUE)
+            var_logical_and = $3.rval;
+        
+        $$.type = LogicalOrExpression::Type::RVALUE;
+        
+        $$.rval = Builder.CreateIntCast(
+            Builder.CreateOr(
+                (var_logical_or->getType()->isIntegerTy()   ? Builder.CreateICmpNE(var_logical_or,llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)))
+                                                            : Builder.CreateFCmpONE(var_logical_or, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(0.0)))),
+                (var_logical_and->getType()->isIntegerTy()  ? Builder.CreateICmpNE(var_logical_and, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)))
+                                                            : Builder.CreateFCmpONE(var_logical_and,llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(0.0))))),
+           llvm::Type::getInt32Ty(TheContext),true);
+
+    }
 	;
 
-conditional_expression
+conditional_expression      
 	: logical_or_expression
-	| logical_or_expression "?" expression ":" conditional_expression
-	;
+    {
+        if($1.type == LogicalOrExpression::Type::IDENTIFIER)
+            $$.type = ConditionalExpression::Type::IDENTIFIER;
+        else if($1.type == LogicalOrExpression::Type::RVALUE)
+            $$.type = ConditionalExpression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    };
+	/*| logical_or_expression "?" expression ":" conditional_expression            TODO: NEED FINIASH Phi_node
+    {
+        llvm::Value *var_logical_or = nullptr;
+        if($1.type == LogicalOrExpression::Type::IDENTIFIER )
+            var_logical_or = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else if($1.type == LogicalOrExpression::Type::RVALUE)
+            var_logical_or = $1.rval;
+        if(var_logical_or->getType()->isIntegerTy()   ? Builder.CreateICmpNE(var_logical_or,llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)))
+                                                            : Builder.CreateFCmpONE(var_logical_or, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(0.0))))
+    }
+	;*/
 
 assignment_expression
 	: conditional_expression
+    {
+        if($1.type == ConditionalExpression::Type::IDENTIFIER)
+            $$.type = AssignmentExpression::Type::IDENTIFIER;
+        else if( $1.type == ConditionalExpression::Type::RVALUE)
+            $$.type = AssignmentExpression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
 	| unary_expression assignment_operator assignment_expression
+    {
+        llvm::Value *var_unary = nullptr;
+        llvm::Value *var_assignment = nullptr;
+        if($1.type == UnaryExpression::Type::IDENTIFIER )
+            var_unary = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
+        else
+        {
+            // TODO :throw error
+        }
+        
+        if($3.type == AssignmentExpression::Type::IDENTIFIER)
+            var_assignment = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
+        else if($3.type == AssignmentExpression::Type::RVALUE)
+            var_assignment = $3.rval;
+
+        switch($2.assignType)
+        {
+            case AssignmentOperator::Type::ASSIGN :
+            {
+                Builder.CreateStore(var_assignment, NamedValues[$1.IDENTIFIERVal]);
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = var_assignment;
+                break;
+            }
+            case AssignmentOperator::Type::MUL_ASSIGN :
+            {    
+                llvm::Value *var_new_unary = var_unary;
+                llvm::Value *var_new_assignment = var_assignment;
+
+                if( var_unary->getType()->isDoubleTy() && var_assignment->getType()->isIntegerTy())
+                {
+                    var_new_assignment = Builder.CreateSIToFP(var_assignment, llvm::Type::getDoubleTy(TheContext));
+                }
+                else if( var_unary->getType()->isIntegerTy() && var_assignment->getType()->isDoubleTy() )
+                {
+                    var_new_unary = Builder.CreateSIToFP(var_unary, llvm::Type::getDoubleTy(TheContext));
+                }
+
+                llvm::Value *ans = nullptr;
+                if( var_new_unary->getType()->isDoubleTy() && var_new_assignment->getType()->isDoubleTy() )
+                {
+                    ans = Builder.CreateFMul(var_unary, var_assignment);
+                }
+                else if(var_new_unary->getType()->isIntegerTy() && var_new_assignment->getType()->isIntegerTy())
+                {
+                    ans = Builder.CreateMul(var_unary, var_assignment);
+                }
+
+                if(ans->getType()->isDoubleTy() && var_unary->getType()->isIntegerTy())
+                    ans = Builder.CreateSIToFP(ans, llvm::Type::getDoubleTy(TheContext));
+                else if(ans->getType()->isIntegerTy() && var_unary->getType()->isDoubleTy())
+                    ans = Builder.CreateFPToSI(ans, llvm::Type::getInt32Ty(TheContext));
+
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = ans;
+
+                break;
+            }
+            case AssignmentOperator::Type::DIV_ASSIGN :
+            {
+                llvm::Value *var_new_unary = var_unary;
+                llvm::Value *var_new_assignment = var_assignment;
+
+                if( var_unary->getType()->isDoubleTy() && var_assignment->getType()->isIntegerTy())
+                {
+                    var_new_assignment = Builder.CreateSIToFP(var_assignment, llvm::Type::getDoubleTy(TheContext));
+                }
+                else if( var_unary->getType()->isIntegerTy() && var_assignment->getType()->isDoubleTy() )
+                {
+                    var_new_unary = Builder.CreateSIToFP(var_unary, llvm::Type::getDoubleTy(TheContext));
+                }
+
+                llvm::Value *ans = nullptr;
+                if( var_new_unary->getType()->isDoubleTy() && var_new_assignment->getType()->isDoubleTy() )
+                {
+                    ans = Builder.CreateFDiv(var_unary, var_assignment);
+                }
+                else if(var_new_unary->getType()->isIntegerTy() && var_new_assignment->getType()->isIntegerTy())
+                {
+                    ans = Builder.CreateSDiv(var_unary, var_assignment);
+                }
+
+                if(ans->getType()->isDoubleTy() && var_unary->getType()->isIntegerTy())
+                    ans = Builder.CreateSIToFP(ans, llvm::Type::getDoubleTy(TheContext));
+                else if(ans->getType()->isIntegerTy() && var_unary->getType()->isDoubleTy())
+                    ans = Builder.CreateFPToSI(ans, llvm::Type::getInt32Ty(TheContext));
+
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = ans;
+
+                break;
+            }
+            case AssignmentOperator::Type::MOD_ASSIGN :
+            {
+                llvm::Value *var_new_unary = var_unary;
+                llvm::Value *var_new_assignment = var_assignment;
+
+                llvm::Value *ans = nullptr;
+                if(var_new_unary->getType()->isIntegerTy() && var_new_assignment->getType()->isIntegerTy())
+                {
+                    ans = Builder.CreateSRem(var_unary, var_assignment);
+                }
+
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = ans;
+                break;
+            }
+            case AssignmentOperator::Type::ADD_ASSIGN :
+            {
+                llvm::Value *var_new_unary = var_unary;
+                llvm::Value *var_new_assignment = var_assignment;
+
+                if( var_unary->getType()->isDoubleTy() && var_assignment->getType()->isIntegerTy())
+                {
+                    var_new_assignment = Builder.CreateSIToFP(var_assignment, llvm::Type::getDoubleTy(TheContext));
+                }
+                else if( var_unary->getType()->isIntegerTy() && var_assignment->getType()->isDoubleTy() )
+                {
+                    var_new_unary = Builder.CreateSIToFP(var_unary, llvm::Type::getDoubleTy(TheContext));
+                }
+
+                llvm::Value *ans = nullptr;
+                if( var_new_unary->getType()->isDoubleTy() && var_new_assignment->getType()->isDoubleTy() )
+                {
+                    ans = Builder.CreateFAdd(var_unary, var_assignment);
+                }
+                else if(var_new_unary->getType()->isIntegerTy() && var_new_assignment->getType()->isIntegerTy())
+                {
+                    ans = Builder.CreateAdd(var_unary, var_assignment);
+                }
+
+                if(ans->getType()->isDoubleTy() && var_unary->getType()->isIntegerTy())
+                    ans = Builder.CreateSIToFP(ans, llvm::Type::getDoubleTy(TheContext));
+                else if(ans->getType()->isIntegerTy() && var_unary->getType()->isDoubleTy())
+                    ans = Builder.CreateFPToSI(ans, llvm::Type::getInt32Ty(TheContext));
+
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = ans;
+                break;
+            }
+            case AssignmentOperator::Type::SUB_ASSIGN :
+            {
+                llvm::Value *var_new_unary = var_unary;
+                llvm::Value *var_new_assignment = var_assignment;
+
+                if( var_unary->getType()->isDoubleTy() && var_assignment->getType()->isIntegerTy())
+                {
+                    var_new_assignment = Builder.CreateSIToFP(var_assignment, llvm::Type::getDoubleTy(TheContext));
+                }
+                else if( var_unary->getType()->isIntegerTy() && var_assignment->getType()->isDoubleTy() )
+                {
+                    var_new_unary = Builder.CreateSIToFP(var_unary, llvm::Type::getDoubleTy(TheContext));
+                }
+
+                llvm::Value *ans = nullptr;
+                if( var_new_unary->getType()->isDoubleTy() && var_new_assignment->getType()->isDoubleTy() )
+                {
+                    ans = Builder.CreateFSub(var_unary, var_assignment);
+                }
+                else if(var_new_unary->getType()->isIntegerTy() && var_new_assignment->getType()->isIntegerTy())
+                {
+                    ans = Builder.CreateSub(var_unary, var_assignment);
+                }
+
+                if(ans->getType()->isDoubleTy() && var_unary->getType()->isIntegerTy())
+                    ans = Builder.CreateSIToFP(ans, llvm::Type::getDoubleTy(TheContext));
+                else if(ans->getType()->isIntegerTy() && var_unary->getType()->isDoubleTy())
+                    ans = Builder.CreateFPToSI(ans, llvm::Type::getInt32Ty(TheContext));
+
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = ans;
+                break;
+            }
+            case AssignmentOperator::Type::LEFT_ASSIGN :
+            {
+                llvm::Value *var_new_unary = var_unary;
+                llvm::Value *var_new_assignment = var_assignment;
+
+                llvm::Value *ans = nullptr;
+                if(var_new_unary->getType()->isIntegerTy() && var_new_assignment->getType()->isIntegerTy())
+                {
+                    ans = Builder.CreateShl(var_unary, var_assignment);
+                }
+
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = ans;
+                break;
+            }
+            case AssignmentOperator::Type::RIGHT_ASSIGN :
+            {
+                llvm::Value *var_new_unary = var_unary;
+                llvm::Value *var_new_assignment = var_assignment;
+
+                llvm::Value *ans = nullptr;
+                if(var_new_unary->getType()->isIntegerTy() && var_new_assignment->getType()->isIntegerTy())
+                {
+                    ans = Builder.CreateAShr(var_unary, var_assignment);
+                }
+
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = ans;
+                break;
+            }
+            case AssignmentOperator::Type::AND_ASSIGN :
+            {
+                llvm::Value *var_new_unary = var_unary;
+                llvm::Value *var_new_assignment = var_assignment;
+
+                llvm::Value *ans = nullptr;
+                if(var_new_unary->getType()->isIntegerTy() && var_new_assignment->getType()->isIntegerTy())
+                {
+                    ans = Builder.CreateAnd(var_unary, var_assignment);
+                }
+
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = ans;
+                break;
+            }
+            case AssignmentOperator::Type::XOR_ASSIGN :
+            {
+                llvm::Value *var_new_unary = var_unary;
+                llvm::Value *var_new_assignment = var_assignment;
+
+                llvm::Value *ans = nullptr;
+                if(var_new_unary->getType()->isIntegerTy() && var_new_assignment->getType()->isIntegerTy())
+                {
+                    ans = Builder.CreateXor(var_unary, var_assignment);
+                }
+
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = ans;
+                break;
+            }
+            case AssignmentOperator::Type::OR_ASSIGN :
+            {
+                llvm::Value *var_new_unary = var_unary;
+                llvm::Value *var_new_assignment = var_assignment;
+
+                llvm::Value *ans = nullptr;
+                if(var_new_unary->getType()->isIntegerTy() && var_new_assignment->getType()->isIntegerTy())
+                {
+                    ans = Builder.CreateOr(var_unary, var_assignment);
+                }
+
+                Builder.CreateStore(ans, NamedValues[$1.IDENTIFIERVal]);
+
+                $$.type = AssignmentExpression::Type::RVALUE;
+                $$.rval = ans;
+                break;
+            }
+        }
+        
+    }
 	;
 
 assignment_operator
-	: "="
-	| MUL_ASSIGN
-	| DIV_ASSIGN
-	| MOD_ASSIGN
-	| ADD_ASSIGN
-	| SUB_ASSIGN
-	| LEFT_ASSIGN
-	| RIGHT_ASSIGN
-	| AND_ASSIGN
-	| XOR_ASSIGN
-	| OR_ASSIGN
+	: "="           {$$.assignType = AssignmentOperator::Type::ASSIGN;}
+	| MUL_ASSIGN    {$$.assignType = AssignmentOperator::Type::MUL_ASSIGN;}
+	| DIV_ASSIGN    {$$.assignType = AssignmentOperator::Type::DIV_ASSIGN;}
+	| MOD_ASSIGN    {$$.assignType = AssignmentOperator::Type::MOD_ASSIGN;}
+	| ADD_ASSIGN    {$$.assignType = AssignmentOperator::Type::ADD_ASSIGN;}
+	| SUB_ASSIGN    {$$.assignType = AssignmentOperator::Type::SUB_ASSIGN;}
+	| LEFT_ASSIGN   {$$.assignType = AssignmentOperator::Type::LEFT_ASSIGN;}
+	| RIGHT_ASSIGN  {$$.assignType = AssignmentOperator::Type::RIGHT_ASSIGN;}
+	| AND_ASSIGN    {$$.assignType = AssignmentOperator::Type::AND_ASSIGN;}
+	| XOR_ASSIGN    {$$.assignType = AssignmentOperator::Type::XOR_ASSIGN;}
+	| OR_ASSIGN     {$$.assignType = AssignmentOperator::Type::OR_ASSIGN;}
 	;
 
 expression
-	: assignment_expression
-	| expression "," assignment_expression
-	;
+	:assignment_expression 
+    {
+        if($1.type == AssignmentExpression::Type::IDENTIFIER)
+            $$.type = Expression::Type::IDENTIFIER;
+        else if($1.type == AssignmentExpression::Type::RVALUE)
+            $$.type = Expression::Type::RVALUE;
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        $$.rval = $1.rval;
+    }
+    ;
+	/*| expression "," assignment_expression
+	;*/
 
 constant_expression
-	: conditional_expression	/* with constraints */
-	;
+    :%empty
+	/*: conditional_expression	 with constraints 
+	;*/
 
 declaration
 	: declaration_specifiers ";"
@@ -1080,16 +1428,21 @@ init_declarator
 	;
 
 storage_class_specifier
-	: TYPEDEF	/* identifiers must be flagged as TYPEDEF_NAME */
+    : %empty
+    ;
+	/*: TYPEDEF	 identifiers must be flagged as TYPEDEF_NAME
 	| EXTERN
 	| STATIC
 	| THREAD_LOCAL
 	| AUTO
 	| REGISTER
-	;
+	;*/
 
 type_specifier
-	: VOID
+    : INT
+    | DOUBLE 
+    ;
+	/*: VOID
 	| CHAR
 	| SHORT
 	| INT
@@ -1100,91 +1453,107 @@ type_specifier
 	| UNSIGNED
 	| BOOL
 	| COMPLEX
-	| IMAGINARY	  	/* non-mandated extension */
+	| IMAGINARY	  	 non-mandated extension 
 	| atomic_type_specifier
 	| struct_or_union_specifier
 	| enum_specifier
-	| TYPEDEF_NAME		/* after it has been defined as such */
-	;
+	| TYPEDEF_NAME		 after it has been defined as such 
+	;*/
 
 struct_or_union_specifier
-	: struct_or_union "{" struct_declaration_list "}"
+    :%empty
+    ;
+	/*: struct_or_union "{" struct_declaration_list "}"
 	| struct_or_union IDENTIFIER "{" struct_declaration_list "}"
 	| struct_or_union IDENTIFIER
-	;
+	;*/
 
 struct_or_union
-	: STRUCT
+    :%empty
+	/*: STRUCT
 	| UNION
-	;
+	;*/
 
 struct_declaration_list
-	: struct_declaration
+    :%empty
+	/*: struct_declaration
 	| struct_declaration_list struct_declaration
-	;
+	;*/
 
 struct_declaration
-	: specifier_qualifier_list ";"	/* for anonymous struct/union */
+    :%empty
+	/*: specifier_qualifier_list ";"	 for anonymous struct/union 
 	| specifier_qualifier_list struct_declarator_list ";"
 	| static_assert_declaration
-	;
+	;*/
 
 specifier_qualifier_list
-	: type_specifier specifier_qualifier_list
+    :%empty
+	/*: type_specifier specifier_qualifier_list
 	| type_specifier
 	| type_qualifier specifier_qualifier_list
 	| type_qualifier
-	;
+	;*/
 
 struct_declarator_list
-	: struct_declarator
+    :%empty
+	/*: struct_declarator
 	| struct_declarator_list "," struct_declarator
-	;
+	;*/
 
 struct_declarator
-	: ":" constant_expression
+    :%empty
+	/*: ":" constant_expression
 	| declarator ":" constant_expression
 	| declarator
-	;
+	;*/
 
 enum_specifier
-	: ENUM "{" enumerator_list "}"
+    :%empty
+	/*: ENUM "{" enumerator_list "}"
 	| ENUM "{" enumerator_list "," "}"
 	| ENUM IDENTIFIER "{" enumerator_list "}"
 	| ENUM IDENTIFIER "{" enumerator_list "," "}"
 	| ENUM IDENTIFIER
-	;
+	;*/
 
 enumerator_list
-	: enumerator
+    :%empty
+	/*: enumerator
 	| enumerator_list "," enumerator
-	;
+	;*/
 
-enumerator	/* identifiers must be flagged as ENUMERATION_CONSTANT */
+enumerator	 
+    :%empty
+    /*identifiers must be flagged as ENUMERATION_CONSTANT 
 	: enumeration_constant "=" constant_expression
 	| enumeration_constant
-	;
+	;*/
 
 atomic_type_specifier
-	: ATOMIC "(" type_name ")"
-	;
+    :%empty
+	/*: ATOMIC "(" type_name ")"
+	;*/
 
 type_qualifier
-	: CONST
+    :%empty
+	/*: CONST
 	| RESTRICT
 	| VOLATILE
 	| ATOMIC
-	;
+	;*/
 
 function_specifier
-	: INLINE
+    :%empty
+	/*: INLINE
 	| NORETURN
-	;
+	;*/
 
 alignment_specifier
-	: ALIGNAS "(" type_name ")"
+    :%empty
+	/*: ALIGNAS "(" type_name ")"
 	| ALIGNAS "(" constant_expression ")"
-	;
+	;*/
 
 declarator
 	: pointer direct_declarator
@@ -1193,7 +1562,7 @@ declarator
 
 direct_declarator
 	: IDENTIFIER
-	| "(" declarator ")"
+	/*| "(" declarator ")"
 	| direct_declarator "[" "]"
 	| direct_declarator "[" "*" "]"
 	| direct_declarator "[" STATIC type_qualifier_list assignment_expression "]"
@@ -1203,17 +1572,19 @@ direct_declarator
 	| direct_declarator "[" type_qualifier_list assignment_expression "]"
 	| direct_declarator "[" type_qualifier_list "]"
 	| direct_declarator "[" assignment_expression "]"
+    */
 	| direct_declarator "(" parameter_type_list ")"
 	| direct_declarator "(" ")"
 	| direct_declarator "(" identifier_list ")"
 	;
 
 pointer
-	: "*" type_qualifier_list pointer
+    :%empty
+	/*: "*" type_qualifier_list pointer
 	| "*" type_qualifier_list
 	| "*" pointer
 	| "*"
-	;
+	;*/
 
 type_qualifier_list
 	: type_qualifier
@@ -1300,13 +1671,15 @@ designator_list
 	;
 
 designator
-	: "[" constant_expression "]"
+    :%empty
+	/*: "[" constant_expression "]"
 	| "." IDENTIFIER
-	;
+	;*/
 
 static_assert_declaration
-	: STATIC_ASSERT "(" constant_expression "," STRING_LITERAL ")" ";"
-	;
+    :%empty
+	/*: STATIC_ASSERT "(" constant_expression "," STRING_LITERAL ")" ";"
+	;*/
 
 statement
 	: labeled_statement

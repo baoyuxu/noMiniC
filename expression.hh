@@ -188,6 +188,75 @@ class LogicalAndExpression
         llvm::Value *rval;
         Type type;
 };
+class LogicalOrExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        Type type;
+};
 
+class ConditionalExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        Type type;
+};
+class AssignmentExpression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        Type type;
+};
+
+class AssignmentOperator
+{
+    public:
+        enum Type
+        {
+            ASSIGN,
+            DIV_ASSIGN,
+            MUL_ASSIGN,
+            MOD_ASSIGN,
+            ADD_ASSIGN,
+            SUB_ASSIGN,
+            LEFT_ASSIGN,
+            RIGHT_ASSIGN,
+            AND_ASSIGN,
+            XOR_ASSIGN,
+            OR_ASSIGN
+        };
+        Type assignType;
+};
+
+class Expression
+{
+    public:
+        enum Type
+        {
+            IDENTIFIER,
+            RVALUE
+        };
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        Type type;
+};
 
 #endif
