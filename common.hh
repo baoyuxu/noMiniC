@@ -51,5 +51,6 @@
 #include <cstdint>
 
 #include "expression.hh"
+#include "specifier.hh"
 
 #endif

@@ -1401,11 +1401,14 @@ constant_expression
 declaration
 	: declaration_specifiers ";"
 	| declaration_specifiers init_declarator_list ";"
-	| static_assert_declaration
+	/*| static_assert_declarationi*/
 	;
 
 declaration_specifiers
-	: storage_class_specifier declaration_specifiers
+    : type_specifier declaration_specifiers 
+    | type_specifier
+    ;
+	/*: storage_class_specifier declaration_specifiers
 	| storage_class_specifier
 	| type_specifier declaration_specifiers
 	| type_specifier
@@ -1415,7 +1418,7 @@ declaration_specifiers
 	| function_specifier
 	| alignment_specifier declaration_specifiers
 	| alignment_specifier
-	;
+	;*/
 
 init_declarator_list
 	: init_declarator
@@ -1427,10 +1430,8 @@ init_declarator
 	| declarator
 	;
 
-storage_class_specifier
-    : %empty
-    ;
-	/*: TYPEDEF	 identifiers must be flagged as TYPEDEF_NAME
+/*storage_class_specifier
+	: TYPEDEF	 identifiers must be flagged as TYPEDEF_NAME
 	| EXTERN
 	| STATIC
 	| THREAD_LOCAL
@@ -1458,107 +1459,93 @@ type_specifier
 	| struct_or_union_specifier
 	| enum_specifier
 	| TYPEDEF_NAME		 after it has been defined as such 
-	;*/
+	;
 
 struct_or_union_specifier
-    :%empty
-    ;
-	/*: struct_or_union "{" struct_declaration_list "}"
+	: struct_or_union "{" struct_declaration_list "}"
 	| struct_or_union IDENTIFIER "{" struct_declaration_list "}"
 	| struct_or_union IDENTIFIER
-	;*/
+	;
 
 struct_or_union
-    :%empty
-	/*: STRUCT
+	: STRUCT
 	| UNION
-	;*/
+	;
 
 struct_declaration_list
-    :%empty
-	/*: struct_declaration
+	: struct_declaration
 	| struct_declaration_list struct_declaration
-	;*/
+	;
 
 struct_declaration
-    :%empty
-	/*: specifier_qualifier_list ";"	 for anonymous struct/union 
+	: specifier_qualifier_list ";"	 for anonymous struct/union 
 	| specifier_qualifier_list struct_declarator_list ";"
 	| static_assert_declaration
-	;*/
+	;
 
 specifier_qualifier_list
-    :%empty
-	/*: type_specifier specifier_qualifier_list
+	: type_specifier specifier_qualifier_list
 	| type_specifier
 	| type_qualifier specifier_qualifier_list
 	| type_qualifier
-	;*/
+	;
 
 struct_declarator_list
-    :%empty
-	/*: struct_declarator
+	: struct_declarator
 	| struct_declarator_list "," struct_declarator
-	;*/
+	;
 
 struct_declarator
-    :%empty
-	/*: ":" constant_expression
+	: ":" constant_expression
 	| declarator ":" constant_expression
 	| declarator
-	;*/
+	;
 
 enum_specifier
-    :%empty
-	/*: ENUM "{" enumerator_list "}"
+	: ENUM "{" enumerator_list "}"
 	| ENUM "{" enumerator_list "," "}"
 	| ENUM IDENTIFIER "{" enumerator_list "}"
 	| ENUM IDENTIFIER "{" enumerator_list "," "}"
 	| ENUM IDENTIFIER
-	;*/
+	;
 
 enumerator_list
-    :%empty
-	/*: enumerator
+	: enumerator
 	| enumerator_list "," enumerator
-	;*/
+	;
 
 enumerator	 
-    :%empty
-    /*identifiers must be flagged as ENUMERATION_CONSTANT 
+    identifiers must be flagged as ENUMERATION_CONSTANT 
 	: enumeration_constant "=" constant_expression
 	| enumeration_constant
-	;*/
+	;
 
 atomic_type_specifier
-    :%empty
-	/*: ATOMIC "(" type_name ")"
-	;*/
+	: ATOMIC "(" type_name ")"
+	;
 
 type_qualifier
-    :%empty
-	/*: CONST
+	: CONST
 	| RESTRICT
 	| VOLATILE
 	| ATOMIC
-	;*/
+	;
 
 function_specifier
-    :%empty
-	/*: INLINE
+	: INLINE
 	| NORETURN
-	;*/
+	;
 
 alignment_specifier
-    :%empty
-	/*: ALIGNAS "(" type_name ")"
+	: ALIGNAS "(" type_name ")"
 	| ALIGNAS "(" constant_expression ")"
 	;*/
 
 declarator
-	: pointer direct_declarator
+    : direct_declarator
+	/*: pointer direct_declarator
 	| direct_declarator
-	;
+	;*/
 
 direct_declarator
 	: IDENTIFIER
@@ -1578,18 +1565,18 @@ direct_declarator
 	| direct_declarator "(" identifier_list ")"
 	;
 
-pointer
-    :%empty
-	/*: "*" type_qualifier_list pointer
+
+/*pointer
+	: "*" type_qualifier_list pointer
 	| "*" type_qualifier_list
 	| "*" pointer
 	| "*"
 	;*/
 
-type_qualifier_list
+/*type_qualifier_list
 	: type_qualifier
 	| type_qualifier_list type_qualifier
-	;
+	;*/
 
 
 parameter_type_list
@@ -1604,21 +1591,26 @@ parameter_list
 
 parameter_declaration
 	: declaration_specifiers declarator
+	| declaration_specifiers
+    ;
+	/*: declaration_specifiers declarator
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers
-	;
+	;*/
 
 identifier_list
 	: IDENTIFIER
 	| identifier_list "," IDENTIFIER
 	;
 
-type_name
+/*type_name
+	: specifier_qualifier_list
+    ;
 	: specifier_qualifier_list abstract_declarator
 	| specifier_qualifier_list
-	;
+	;*/
 
-abstract_declarator
+/*abstract_declarator
 	: pointer direct_abstract_declarator
 	| pointer
 	| direct_abstract_declarator
@@ -1646,7 +1638,7 @@ direct_abstract_declarator
 	| "(" parameter_type_list ")"
 	| direct_abstract_declarator "(" ")"
 	| direct_abstract_declarator "(" parameter_type_list ")"
-	;
+	;*/
 
 initializer
 	: "{" initializer_list "}"
@@ -1655,13 +1647,13 @@ initializer
 	;
 
 initializer_list
-	: designation initializer
-	| initializer
-	| initializer_list "," designation initializer
+	/*: designation initializeri*/
+	: initializer
+	/*| initializer_list "," designation initializeri*/
 	| initializer_list "," initializer
 	;
 
-designation
+/*designation
 	: designator_list "="
 	;
 
@@ -1671,14 +1663,12 @@ designator_list
 	;
 
 designator
-    :%empty
-	/*: "[" constant_expression "]"
+	: "[" constant_expression "]"
 	| "." IDENTIFIER
 	;*/
 
-static_assert_declaration
-    :%empty
-	/*: STATIC_ASSERT "(" constant_expression "," STRING_LITERAL ")" ";"
+/*static_assert_declaration
+	: STATIC_ASSERT "(" constant_expression "," STRING_LITERAL ")" ";"
 	;*/
 
 statement
