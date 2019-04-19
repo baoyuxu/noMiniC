@@ -49,7 +49,8 @@ WS  [ \t\v\n\f]
   loc.step ();
 %}
 "//"                 { BEGIN(COMMENT); }
-<COMMENT>\n       { BEGIN(INITIAL); }  //TODO TOFIX: On *nix it is '\n' but on Windowns it is "\r\n". then how about on Mac OS?
+<COMMENT>\n       { BEGIN(INITIAL); }  //TODO TOFIX: On *nix it is '\n' but on Windowns it is "\r\n". then how about on Mac OS?S
+<COMMENT>\r\n     { BEGIN(INITIAL); }
 <COMMENT>.  {};
 "/*"                 {BEGIN(COMMENT_OVER_LINES);}
 <COMMENT_OVER_LINES>"*/"       {BEGIN(INITIAL);}

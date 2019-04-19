@@ -51,7 +51,8 @@
         COLON                   ":"
         EQ                      "="
         LEFT_PARENTHESIS        "("
-        RIGHT_PARAENTHESIS      ")" LEFT_BRACKETS           "["
+        RIGHT_PARAENTHESIS      ")" 
+        LEFT_BRACKETS           "["
         RIGHT_BRACKETS          "]"
         DOT                     "."
         AND_BY_BIT              "&"
@@ -246,7 +247,7 @@ postfix_expression
         $$.IDENTIFIERVal = $1.IDENTIFIERVal; 
         $$.rval = $1.rval; 
     }
-	| postfix_expression "(" ")"                                                //TODO: finish
+	| postfix_expression "(" ")"                                                //TODO: finish. This and the next grammer are Funtion Call.
 	| postfix_expression "(" argument_expression_list ")"
 	| postfix_expression INC_OP
     {
@@ -296,12 +297,13 @@ argument_expression_list
 unary_expression
 	: postfix_expression
     {
-        if($1.type == PostfixExpression::Type::IDENTIFIER )
+        /*if($1.type == PostfixExpression::Type::IDENTIFIER )
             $$.type = UnaryExpression::Type::IDENTIFIER;
         else if( $1.type == PostfixExpression::RVALUE )
             $$.type = UnaryExpression::Type::RVALUE;
         $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$.rval = $1.rval;*/
+        $$ = static_cast<UnaryExpression>($1); //TODO: TO FIX std::static_cast 
     }
 	| INC_OP unary_expression
     {
@@ -384,12 +386,13 @@ unary_operator
 cast_expression
 	: unary_expression
     {
-        if($1.type == UnaryExpression::Type::IDENTIFIER )
+        /*if($1.type == UnaryExpression::Type::IDENTIFIER )
             $$.type = CastExpression::Type::IDENTIFIER;
         else if( $1.type == UnaryExpression::RVALUE )
             $$.type = CastExpression::Type::RVALUE;
         $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$.rval = $1.rval;*/
+        $$ = static_cast<CastExpression>($1);
     }
     ;
 	/*| "(" type_name ")" cast_expression
@@ -1107,7 +1110,7 @@ assignment_expression
         else if($3.type == AssignmentExpression::Type::RVALUE)
             var_assignment = $3.rval;
 
-        switch($2.assignType)
+        switch($2.assignType.underlying())
         {
             case AssignmentOperator::Type::ASSIGN :
             {
