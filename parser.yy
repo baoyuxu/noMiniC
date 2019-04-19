@@ -240,12 +240,7 @@ generic_association
 postfix_expression
 	: primary_expression 
     {
-        if($1.type == PrimaryExpression::Type::IDENTIFIER) 
-            $$.type = PostfixExpression::Type::IDENTIFIER;
-        else if( $1.type == PrimaryExpression::Type::RVALUE)
-            $$.type = PostfixExpression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal; 
-        $$.rval = $1.rval; 
+        $$ = static_cast<PostfixExpression>($1);
     }
 	| postfix_expression "(" ")"                                                //TODO: finish. This and the next grammer are Funtion Call.
 	| postfix_expression "(" argument_expression_list ")"
@@ -297,13 +292,7 @@ argument_expression_list
 unary_expression
 	: postfix_expression
     {
-        /*if($1.type == PostfixExpression::Type::IDENTIFIER )
-            $$.type = UnaryExpression::Type::IDENTIFIER;
-        else if( $1.type == PostfixExpression::RVALUE )
-            $$.type = UnaryExpression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;*/
-        $$ = static_cast<UnaryExpression>($1); //TODO: TO FIX std::static_cast 
+        $$ = static_cast<UnaryExpression>($1); 
     }
 	| INC_OP unary_expression
     {
@@ -386,12 +375,6 @@ unary_operator
 cast_expression
 	: unary_expression
     {
-        /*if($1.type == UnaryExpression::Type::IDENTIFIER )
-            $$.type = CastExpression::Type::IDENTIFIER;
-        else if( $1.type == UnaryExpression::RVALUE )
-            $$.type = CastExpression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;*/
         $$ = static_cast<CastExpression>($1);
     }
     ;
@@ -401,12 +384,13 @@ cast_expression
 multiplicative_expression
 	: cast_expression
     {
-        if( $1.type == CastExpression::Type::IDENTIFIER )
+        $$ = static_cast<MultiplicativeExpression>($1);
+        /*if( $1.type == CastExpression::Type::IDENTIFIER )
             $$.type = MultiplicativeExpression::Type::IDENTIFIER;
         else if( $1.type == CastExpression::Type::RVALUE )
             $$.type = MultiplicativeExpression::Type::RVALUE;
         $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$.rval = $1.rval;*/
     }
 	| multiplicative_expression "*" cast_expression
     {
@@ -516,13 +500,7 @@ multiplicative_expression
 additive_expression
 	: multiplicative_expression
     {
-        if( $1.type ==  MultiplicativeExpression::Type::IDENTIFIER )
-            $$.type = AdditiveExpression::Type::IDENTIFIER;
-        else if( $1.type == MultiplicativeExpression::Type::RVALUE )
-            $$.type = AdditiveExpression::Type::RVALUE;
-
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<AdditiveExpression>($1);
     }
 	| additive_expression "+" multiplicative_expression
     {
@@ -599,12 +577,7 @@ additive_expression
 shift_expression
 	: additive_expression
     {
-        if($1.type == AdditiveExpression::Type::IDENTIFIER)
-            $$.type = ShiftExpression::Type::IDENTIFIER;
-        else if( $1.type == AdditiveExpression::Type::RVALUE)
-            $$.type = ShiftExpression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<ShiftExpression>($1);
     }
 	| shift_expression LEFT_OP additive_expression
     {

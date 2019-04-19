@@ -30,7 +30,8 @@ class safe_enum : public def
         friend bool operator >  (const safe_enum &lhs, const safe_enum &rhs) { return lhs.val >  rhs.val; }
 };
 
-class PrimaryExpression
+
+class ShiftExpression
 {
     private:
         struct Type_def
@@ -45,6 +46,72 @@ class PrimaryExpression
     public:
         typedef safe_enum<Type_def> Type;
 
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        
+        Type type;
+};
+
+class AdditiveExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+        
+        explicit operator ShiftExpression()
+        {
+            ShiftExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == AdditiveExpression::Type::IDENTIFIER)
+                o.type = ShiftExpression::Type::IDENTIFIER;
+            else if(type == AdditiveExpression::Type::RVALUE)
+                o.type = ShiftExpression::Type::RVALUE;
+            return o;
+        }
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class MultiplicativeExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+        
+        explicit operator AdditiveExpression()
+        {
+            AdditiveExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == MultiplicativeExpression::Type::IDENTIFIER)
+                o.type = AdditiveExpression::Type::IDENTIFIER;
+            else if(type == MultiplicativeExpression::Type::RVALUE)
+                o.type = AdditiveExpression::Type::RVALUE;
+            return o;
+        }
+        
         std::string IDENTIFIERVal;
         llvm::Value *rval;
 
@@ -65,6 +132,18 @@ class CastExpression
 
     public:
         typedef safe_enum<Type_def> Type;
+
+        explicit operator MultiplicativeExpression()
+        {
+            MultiplicativeExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == CastExpression::Type::IDENTIFIER)
+                o.type = MultiplicativeExpression::Type::IDENTIFIER;
+            else if(type == CastExpression::Type::RVALUE)
+                o.type = MultiplicativeExpression::Type::RVALUE;
+            return o;
+        }
 
         std::string IDENTIFIERVal;
         llvm::Value *rval;
@@ -137,9 +216,7 @@ class PostfixExpression
 
         Type type;
 };
-
-
-class MultiplicativeExpression
+class PrimaryExpression
 {
     private:
         struct Type_def
@@ -154,26 +231,17 @@ class MultiplicativeExpression
     public:
         typedef safe_enum<Type_def> Type;
 
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-
-        Type type;
-};
-
-class AdditiveExpression
-{
-    private:
-        struct Type_def
+        explicit operator PostfixExpression()
         {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
+            PostfixExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == PrimaryExpression::Type::IDENTIFIER)
+                o.type = PostfixExpression::Type::IDENTIFIER;
+            else if(type == PrimaryExpression::Type::RVALUE)
+                o.type = PostfixExpression::Type::RVALUE;
+            return o;
+        }
 
         std::string IDENTIFIERVal;
         llvm::Value *rval;
@@ -181,26 +249,6 @@ class AdditiveExpression
         Type type;
 };
 
-class ShiftExpression
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-        
-        Type type;
-};
 
 class RelationalExpression
 {
@@ -397,21 +445,7 @@ class AssignmentOperator
 
     public:
         typedef safe_enum<Type_def> Type;
-    /*public:
-        enum Type
-        {
-            ASSIGN,
-            DIV_ASSIGN,
-            MUL_ASSIGN,
-            MOD_ASSIGN,
-            ADD_ASSIGN,
-            SUB_ASSIGN,
-            LEFT_ASSIGN,
-            RIGHT_ASSIGN,
-            AND_ASSIGN,
-            XOR_ASSIGN,
-            OR_ASSIGN
-        };*/
+
         Type assignType;
 };
 
