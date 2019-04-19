@@ -30,6 +30,343 @@ class safe_enum : public def
         friend bool operator >  (const safe_enum &lhs, const safe_enum &rhs) { return lhs.val >  rhs.val; }
 };
 
+class Expression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        Type type;
+};
+
+class AssignmentOperator
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                ASSIGN,
+                DIV_ASSIGN,
+                MUL_ASSIGN,
+                MOD_ASSIGN,
+                ADD_ASSIGN,
+                SUB_ASSIGN,
+                LEFT_ASSIGN,
+                RIGHT_ASSIGN,
+                AND_ASSIGN,
+                XOR_ASSIGN,
+                OR_ASSIGN
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        Type assignType;
+};
+class AssignmentExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        explicit operator Expression()
+        {
+            Expression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == AssignmentExpression::Type::IDENTIFIER)
+                o.type = Expression::Type::IDENTIFIER;
+            else if(type == AssignmentExpression::Type::RVALUE)
+                o.type = Expression::Type::RVALUE;
+            return o;
+        }
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        Type type;
+};
+
+class ConditionalExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        explicit operator AssignmentExpression()
+        {
+            AssignmentExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == ConditionalExpression::Type::IDENTIFIER)
+                o.type = AssignmentExpression::Type::IDENTIFIER;
+            else if(type == ConditionalExpression::Type::RVALUE)
+                o.type = AssignmentExpression::Type::RVALUE;
+            return o;
+        }
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        Type type;
+};
+
+class LogicalOrExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        explicit operator ConditionalExpression()
+        {
+            ConditionalExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == LogicalOrExpression::Type::IDENTIFIER)
+                o.type = ConditionalExpression::Type::IDENTIFIER;
+            else if(type == LogicalOrExpression::Type::RVALUE)
+                o.type = ConditionalExpression::Type::RVALUE;
+            return o;
+        }
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        Type type;
+};
+
+class LogicalAndExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        explicit operator LogicalOrExpression()
+        {
+            LogicalOrExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == LogicalAndExpression::Type::IDENTIFIER)
+                o.type = LogicalOrExpression::Type::IDENTIFIER;
+            else if(type == LogicalAndExpression::Type::RVALUE)
+                o.type = LogicalOrExpression::Type::RVALUE;
+            return o;
+        }
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+        Type type;
+};
+
+class InclusiveOrExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        explicit operator LogicalAndExpression()
+        {
+            LogicalAndExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == InclusiveOrExpression::Type::IDENTIFIER)
+                o.type = LogicalAndExpression::Type::IDENTIFIER;
+            else if(type == InclusiveOrExpression::Type::RVALUE)
+                o.type = LogicalAndExpression::Type::RVALUE;
+            return o;
+        }
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class ExclusiveOrExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        explicit operator InclusiveOrExpression()
+        {
+            InclusiveOrExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if( type == ExclusiveOrExpression::Type::IDENTIFIER)
+                o.type = InclusiveOrExpression::Type::IDENTIFIER;
+            else if(type == ExclusiveOrExpression::Type::RVALUE)
+                o.type = InclusiveOrExpression::Type::RVALUE;
+            return o;
+        }
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class AndExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        explicit operator ExclusiveOrExpression()
+        {
+            ExclusiveOrExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == AndExpression::Type::IDENTIFIER)
+                o.type = ExclusiveOrExpression::Type::IDENTIFIER;
+            else if(type == AndExpression::Type::RVALUE)
+                o.type = ExclusiveOrExpression::Type::RVALUE;
+            return o;
+        }
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class EqualityExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        explicit operator AndExpression()
+        {
+            AndExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == EqualityExpression::Type::IDENTIFIER)
+                o.type = AndExpression::Type::IDENTIFIER;
+            else if(type == EqualityExpression::Type::RVALUE)
+                o.type = AndExpression::Type::RVALUE;
+            return o;
+        }
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
+
+class RelationalExpression
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER,
+                RVALUE
+            };
+        };
+
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        explicit operator EqualityExpression()
+        {
+            EqualityExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == RelationalExpression::Type::IDENTIFIER)
+                o.type = EqualityExpression::Type::IDENTIFIER;
+            else if(type == RelationalExpression::Type::RVALUE)
+                o.type = EqualityExpression::Type::RVALUE;
+            return o;
+        }
+
+        std::string IDENTIFIERVal;
+        llvm::Value *rval;
+
+        Type type;
+};
 
 class ShiftExpression
 {
@@ -46,6 +383,17 @@ class ShiftExpression
     public:
         typedef safe_enum<Type_def> Type;
 
+        explicit operator RelationalExpression()
+        {
+            RelationalExpression o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == ShiftExpression::Type::IDENTIFIER)
+                o.type = RelationalExpression::Type::IDENTIFIER;
+            else if(type == ShiftExpression::Type::RVALUE)
+                o.type = RelationalExpression::Type::RVALUE;
+            return o;
+        }
         std::string IDENTIFIERVal;
         llvm::Value *rval;
         
@@ -246,226 +594,6 @@ class PrimaryExpression
         std::string IDENTIFIERVal;
         llvm::Value *rval;
 
-        Type type;
-};
-
-
-class RelationalExpression
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-
-        Type type;
-};
-
-class EqualityExpression
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-
-        Type type;
-};
-
-class AndExpression
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-
-        Type type;
-};
-
-class ExclusiveOrExpression
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-
-        Type type;
-};
-class InclusiveOrExpression
-{
-    public:
-        enum Type
-        {
-            IDENTIFIER,
-            RVALUE
-        };
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-
-        Type type;
-};
-class LogicalAndExpression
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-        Type type;
-};
-class LogicalOrExpression
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-        Type type;
-};
-
-class ConditionalExpression
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-        Type type;
-};
-class AssignmentExpression
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
-        Type type;
-};
-
-class AssignmentOperator
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                ASSIGN,
-                DIV_ASSIGN,
-                MUL_ASSIGN,
-                MOD_ASSIGN,
-                ADD_ASSIGN,
-                SUB_ASSIGN,
-                LEFT_ASSIGN,
-                RIGHT_ASSIGN,
-                AND_ASSIGN,
-                XOR_ASSIGN,
-                OR_ASSIGN
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-
-        Type assignType;
-};
-
-class Expression
-{
-    private:
-        struct Type_def
-        {
-            enum type : int
-            {
-                IDENTIFIER,
-                RVALUE
-            };
-        };
-
-    public:
-        typedef safe_enum<Type_def> Type;
-
-        std::string IDENTIFIERVal;
-        llvm::Value *rval;
         Type type;
 };
 

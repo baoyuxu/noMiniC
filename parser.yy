@@ -385,12 +385,6 @@ multiplicative_expression
 	: cast_expression
     {
         $$ = static_cast<MultiplicativeExpression>($1);
-        /*if( $1.type == CastExpression::Type::IDENTIFIER )
-            $$.type = MultiplicativeExpression::Type::IDENTIFIER;
-        else if( $1.type == CastExpression::Type::RVALUE )
-            $$.type = MultiplicativeExpression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;*/
     }
 	| multiplicative_expression "*" cast_expression
     {
@@ -623,12 +617,7 @@ shift_expression
 relational_expression
 	: shift_expression
     {
-        if($1.type == ShiftExpression::Type::IDENTIFIER)
-            $$.type = RelationalExpression::Type::IDENTIFIER;
-        else if($1.type == ShiftExpression::Type::RVALUE)
-            $$.type = RelationalExpression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<RelationalExpression>($1);
     }
 	| relational_expression "<" shift_expression
     {
@@ -784,13 +773,7 @@ relational_expression
 equality_expression
 	: relational_expression
     {
-        if($1.type == RelationalExpression::Type::IDENTIFIER)
-            $$.type = EqualityExpression::Type::IDENTIFIER;
-        else if($1.type == RelationalExpression::Type::RVALUE)
-            $$.type = EqualityExpression::Type::RVALUE;
-        
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<EqualityExpression>($1);
     }
 	| equality_expression EQ_OP relational_expression
     {
@@ -871,13 +854,7 @@ equality_expression
 and_expression
 	: equality_expression
     {
-        if($1.type == EqualityExpression::Type::IDENTIFIER)
-            $$.type = AndExpression::Type::IDENTIFIER;
-        else if($1.type == EqualityExpression::Type::RVALUE)
-            $$.type = AndExpression::Type::RVALUE;
-
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<AndExpression>($1);
     }
 	| and_expression "&" equality_expression
     {
@@ -904,13 +881,7 @@ and_expression
 exclusive_or_expression
 	: and_expression
     {
-        if($1.type == AndExpression::Type::IDENTIFIER)
-            $$.type = ExclusiveOrExpression::Type::IDENTIFIER;
-        else if($1.type == AndExpression::Type::RVALUE)
-            $$.type = ExclusiveOrExpression::Type::RVALUE;
-
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<ExclusiveOrExpression>($1);
     }
 	| exclusive_or_expression "^" and_expression
     {
@@ -937,12 +908,7 @@ exclusive_or_expression
 inclusive_or_expression
 	: exclusive_or_expression
     {
-        if($1.type == ExclusiveOrExpression::Type::IDENTIFIER)
-            $$.type = InclusiveOrExpression::Type::IDENTIFIER;
-        else if($1.type == ExclusiveOrExpression::Type::RVALUE)
-            $$.type = InclusiveOrExpression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<InclusiveOrExpression>($1);
     }
 	| inclusive_or_expression "|" exclusive_or_expression
     {
@@ -969,10 +935,7 @@ inclusive_or_expression
 logical_and_expression
 	: inclusive_or_expression
     {
-        if($1.type == InclusiveOrExpression::Type::IDENTIFIER)
-            $$.type = LogicalAndExpression::Type::IDENTIFIER;
-        else if($1.type == InclusiveOrExpression::Type::RVALUE)
-            $$.type = LogicalAndExpression::Type::RVALUE;
+        $$ = static_cast<LogicalAndExpression>($1);
     }
 	| logical_and_expression AND_OP inclusive_or_expression
     {
@@ -1002,12 +965,7 @@ logical_and_expression
 logical_or_expression
 	: logical_and_expression 
     {
-        if($1.type == LogicalAndExpression::Type::IDENTIFIER)
-            $$.type = LogicalOrExpression::Type::IDENTIFIER;
-        else if($1.type == LogicalAndExpression::Type::RVALUE)
-            $$.type = LogicalOrExpression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<LogicalOrExpression>($1);
     }
 	| logical_or_expression OR_OP logical_and_expression
     {
@@ -1038,12 +996,7 @@ logical_or_expression
 conditional_expression      
 	: logical_or_expression
     {
-        if($1.type == LogicalOrExpression::Type::IDENTIFIER)
-            $$.type = ConditionalExpression::Type::IDENTIFIER;
-        else if($1.type == LogicalOrExpression::Type::RVALUE)
-            $$.type = ConditionalExpression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<ConditionalExpression>($1);
     };
 	/*| logical_or_expression "?" expression ":" conditional_expression            TODO: NEED FINIASH Phi_node
     {
@@ -1060,12 +1013,7 @@ conditional_expression
 assignment_expression
 	: conditional_expression
     {
-        if($1.type == ConditionalExpression::Type::IDENTIFIER)
-            $$.type = AssignmentExpression::Type::IDENTIFIER;
-        else if( $1.type == ConditionalExpression::Type::RVALUE)
-            $$.type = AssignmentExpression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<AssignmentExpression>($1);
     }
 	| unary_expression assignment_operator assignment_expression
     {
@@ -1358,12 +1306,7 @@ assignment_operator
 expression
 	:assignment_expression 
     {
-        if($1.type == AssignmentExpression::Type::IDENTIFIER)
-            $$.type = Expression::Type::IDENTIFIER;
-        else if($1.type == AssignmentExpression::Type::RVALUE)
-            $$.type = Expression::Type::RVALUE;
-        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
-        $$.rval = $1.rval;
+        $$ = static_cast<Expression>($1);
     }
     ;
 	/*| expression "," assignment_expression
