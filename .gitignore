@@ -87,3 +87,5 @@ dkms.conf
 location.hh
 noMiniC
 parser.hh
+parser.cc
+scanner.cc
