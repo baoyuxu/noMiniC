@@ -127,6 +127,11 @@
 %type<AssignmentExpression> assignment_expression
 %type<AssignmentOperator> assignment_operator
 %type<Expression> expression
+%type<TypeSpecifier> type_specifier
+%type<DeclarationSpecifiers> declaration_specifiers
+%type<DirectDeclarator> direct_declarator
+%type<Declarator> declarator
+%type<InitDeclarator> init_declarator
 
 //%type<llvm::Value *> string
 
@@ -1318,16 +1323,20 @@ constant_expression
 	;*/
 
 declaration
-	: declaration_specifiers ";"
+	: declaration_specifiers ";"    //TODO: Throw warning
 	| declaration_specifiers init_declarator_list ";"
 	/*| static_assert_declarationi*/
 	;
 
 declaration_specifiers
-    : type_specifier declaration_specifiers 
-    | type_specifier
+    : type_specifier
+    {
+        $$ = static_cast<DeclarationSpecifiers>($1);
+    }
     ;
-	/*: storage_class_specifier declaration_specifiers
+    /*: type_specifier declaration_specifiers 
+    | type_specifier
+    | storage_class_specifier declaration_specifiers
 	| storage_class_specifier
 	| type_specifier declaration_specifiers
 	| type_specifier
@@ -1346,7 +1355,7 @@ init_declarator_list
 
 init_declarator
 	: declarator "=" initializer
-	| declarator
+	| declarator { $$ = static_cast<InitDeclarator>($1); }
 	;
 
 /*storage_class_specifier
@@ -1360,7 +1369,9 @@ init_declarator
 
 type_specifier
     : INT
+    { $$.type = TypeSpecifier::Type::INT; }
     | DOUBLE 
+    { $$.type = TypeSpecifier::Type::DOUBLE; }
     ;
 	/*: VOID
 	| CHAR
@@ -1462,12 +1473,17 @@ alignment_specifier
 
 declarator
     : direct_declarator
+    { $$ = static_cast<Declarator>($1); }
 	/*: pointer direct_declarator
 	| direct_declarator
 	;*/
 
 direct_declarator
 	: IDENTIFIER
+    { 
+        $$.type = DirectDeclarator::Type::IDENTIFIER;
+        $$.IDENTIFIERVal = std::move($1);
+    }
 	/*| "(" declarator ")"
 	| direct_declarator "[" "]"
 	| direct_declarator "[" "*" "]"
@@ -1478,10 +1494,10 @@ direct_declarator
 	| direct_declarator "[" type_qualifier_list assignment_expression "]"
 	| direct_declarator "[" type_qualifier_list "]"
 	| direct_declarator "[" assignment_expression "]"
-    */
 	| direct_declarator "(" parameter_type_list ")"
 	| direct_declarator "(" ")"
 	| direct_declarator "(" identifier_list ")"
+    */
 	;
 
 
@@ -1560,10 +1576,12 @@ direct_abstract_declarator
 	;*/
 
 initializer
-	: "{" initializer_list "}"
+    : assignment_expression TODO: FROM THIS 
+    ;
+	/*: "{" initializer_list "}"
 	| "{" initializer_list "," "}"
 	| assignment_expression
-	;
+	;*/
 
 initializer_list
 	/*: designation initializeri*/

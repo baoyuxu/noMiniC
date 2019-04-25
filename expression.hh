@@ -30,6 +30,120 @@ class safe_enum : public def
         friend bool operator >  (const safe_enum &lhs, const safe_enum &rhs) { return lhs.val >  rhs.val; }
 };
 
+class InitDeclarator
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                INT,
+                DOUBLE
+            };
+        };
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        Type type;
+        std::string IDENTIFIERVal;
+        int32_t INTval;
+        double DOUBLEval;
+};
+
+class Declarator
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER
+            };
+        };
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        Type type;
+        std::string IDENTIFIERVal;
+    
+        operator InitDeclarator()
+        {
+            InitDeclarator o;
+            o.IDENTIFIERVal = std::move(IDENTIFIERVal);
+            o.INTval = 0;
+            o.DOUBLEval = 0;
+            return o;
+        }
+
+};
+
+class DirectDeclarator
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                IDENTIFIER
+            };
+        };
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        Type type;
+        std::string IDENTIFIERVal;
+
+        operator Declarator()
+        {
+            Declarator o;
+            o.type = Declarator::Type::IDENTIFIER;
+            o.IDENTIFIERVal = std::move(IDENTIFIERVal);
+            return o;
+        }
+};
+
+class DeclarationSpecifiers
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                INT,
+                DOUBLE
+            };
+        };
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        Type type;
+};
+
+
+class TypeSpecifier
+{
+    private:
+        struct Type_def
+        {
+            enum type : int
+            {
+                INT,
+                DOUBLE
+            };
+        };
+    public:
+        typedef safe_enum<Type_def> Type;
+
+        Type type;
+
+        operator DeclarationSpecifiers()
+        {
+            DeclarationSpecifiers o;
+            o.type = type==Type::INT ? DeclarationSpecifiers::Type::INT : DeclarationSpecifiers::Type::DOUBLE;
+            return o;
+        }
+};
+
 class Expression
 {
     private:
