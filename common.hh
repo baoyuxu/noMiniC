@@ -1,6 +1,8 @@
 #ifndef __COMMON_HH__
 #define __COMMON_HH__
 
+#include "safe_enum.hh"
+
 #include "constant.hh"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/Optional.h"
@@ -54,6 +56,5 @@
 #include "specifier.hh"
 
 using std::swap;
-
 
 #endif

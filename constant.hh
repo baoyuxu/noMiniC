@@ -1,18 +1,25 @@
 #ifndef __CONSTANT_HH_
 #define __CONSTANT_HH_
 
+#include "safe_enum.hh"
+
 class I_Constant
 {
-    public:
-        enum Type
+    private:
+        struct type_def
         {
-            INT,
-            UINT,
-            LONG,
-            ULONG,
-            LONGLONG,
-            ULONGLONG
+            enum type
+            {
+                INT,
+                UINT,
+                LONG,
+                ULONG,
+                LONGLONG,
+                ULONGLONG
+            };
         };
+    public:
+        typedef safe_enum<type_def> Type;
         struct iType{};
         struct uiType{};
         struct lType{};
@@ -30,28 +37,33 @@ class I_Constant
 
         I_Constant()=default;
         I_Constant(int _iVal, const iType &)
-            :iVal(_iVal), type(INT){}
+            :iVal(_iVal), type(Type::INT){}
         I_Constant(unsigned int _uiVal, const uiType &)
-            :uiVal(_uiVal), type(UINT){};
+            :uiVal(_uiVal), type(Type::UINT){};
         I_Constant(long int _lVal, const lType &)
-            :lVal(_lVal), type(LONG){};
+            :lVal(_lVal), type(Type::LONG){};
         I_Constant(unsigned long int _ulVal, const ulType &)
-            :ulVal(_ulVal), type(ULONG){};
+            :ulVal(_ulVal), type(Type::ULONG){};
         I_Constant(long long int _llVal, const llType &)
-            :llVal(_llVal), type(LONGLONG){};
+            :llVal(_llVal), type(Type::LONGLONG){};
         I_Constant(unsigned long long int _ullVal, const ullType &)
-            :ullVal(_ullVal), type(ULONGLONG){};
+            :ullVal(_ullVal), type(Type::ULONGLONG){};
 };
 
 class F_Constant
 {
-    public:
-        enum Type
+    private:
+        struct type_def
         {
-            FLOAT,
-            DOUBLE,
-            LONG_DOUBLE
+            enum type
+            {
+                FLOAT,
+                DOUBLE,
+                LONG_DOUBLE
+            };
         };
+    public:
+        typedef safe_enum<type_def> Type;
         struct fType{};
         struct dType{};
         struct ldType{};
@@ -63,11 +75,11 @@ class F_Constant
 
         F_Constant()=default;
         F_Constant(float _fVal, const fType &)
-            :fVal(_fVal), type(FLOAT){}
+            :fVal(_fVal), type(Type::FLOAT){}
         F_Constant(double _dVal, const dType&)
-            :dVal(_dVal), type(DOUBLE){}
+            :dVal(_dVal), type(Type::DOUBLE){}
         F_Constant(long double _ldVal, const ldType&)
-            :ldVal(_ldVal), type(LONG_DOUBLE){}
+            :ldVal(_ldVal), type(Type::LONG_DOUBLE){}
 };
 
 #endif

@@ -1576,7 +1576,7 @@ direct_abstract_declarator
 	;*/
 
 initializer
-    : assignment_expression TODO: FROM THIS 
+    : assignment_expression // TODO: FROM THIS 
     ;
 	/*: "{" initializer_list "}"
 	| "{" initializer_list "," "}"

@@ -8,7 +8,7 @@ CXXFLAG=`llvm-config --cxxflags --ldflags --system-libs --libs core mcjit native
 CXXFLAGS=`llvm-config --cxxflags` -Wall -fexceptions -O2 -std=c++17 -Wno-unknown-warning-option -Wno-unused-function
 LINKFLAGS=`llvm-config --ldflags --libs` -lpthread -lncurses -std=c++17
 BISONFLAGS=-Wno-other
-HEADERS=constant.hh expression.hh common.hh
+HEADERS=constant.hh expression.hh common.hh safe_enum.hh
 
 all: noMiniC
 
@@ -30,4 +30,4 @@ parser.o: parser.hh $(HEADERS)
 scanner.o: parser.hh $(HEADERS)
 
 clean:
-	rm -f noMiniC *.o parser.hh parser.cc scanner.cc location.hh parser.tab.cc parser.tab.hh
+	rm -f noMiniC *.o parser.hh parser.cc scanner.cc location.hh
