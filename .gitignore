@@ -89,3 +89,4 @@ noMiniC
 parser.hh
 parser.cc
 scanner.cc
+__pycache__

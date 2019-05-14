@@ -39,7 +39,7 @@ class Declarator
         Type type;
         std::string IDENTIFIERVal;
     
-        operator InitDeclarator()
+        explicit operator InitDeclarator()
         {
             InitDeclarator o;
             o.IDENTIFIERVal = std::move(IDENTIFIERVal);
@@ -66,7 +66,7 @@ class DirectDeclarator
         Type type;
         std::string IDENTIFIERVal;
 
-        operator Declarator()
+        explicit operator Declarator()
         {
             Declarator o;
             o.type = Declarator::Type::IDENTIFIER;
@@ -109,7 +109,7 @@ class TypeSpecifier
 
         Type type;
 
-        operator DeclarationSpecifiers()
+        explicit operator DeclarationSpecifiers()
         {
             DeclarationSpecifiers o;
             o.type = type==Type::INT ? DeclarationSpecifiers::Type::INT : DeclarationSpecifiers::Type::DOUBLE;
@@ -163,6 +163,7 @@ class AssignmentOperator
 
         Type assignType;
 };
+
 class AssignmentExpression
 {
     private:

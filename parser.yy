@@ -24,6 +24,7 @@
     void start_parser();
     void end_parser();
 
+
 }
 
 %param { driver& drv }
@@ -35,6 +36,11 @@
 %code 
 {
     #include "driver.hh"
+    static void print_value(llvm::Value *rval, std::ostream &o)
+    {
+        llvm::raw_os_ostream os(o);
+        rval->print(os);
+    }
 }
 %define api.token.prefix {TOK_}
 
@@ -135,13 +141,13 @@
 
 //%type<llvm::Value *> string
 
-%start translation_unit
+//%start translation_unit
 
-//%type<llvm::APInt> Xexp
-//%start unit
+%type<llvm::Value *> Xexp
+%start unit
 %%
 
-/*unit
+unit
     : Xexp 
     {
         llvm::Function *f = llvm::Function::Create(
@@ -157,19 +163,12 @@
     }
 
 Xexp
-    : unary_expression
+    :expression
     { 
-        if($1.type == UnaryExpression::Type::RVALUE) 
-        {
-            llvm::raw_os_ostream os(std::cout);
-            $1.rval->print(os);
-            os<<"\n";
-        }
-        else if($1.type == UnaryExpression::Type::IDENTIFIER )
-            std::cerr<<"IDENTIFIER: "<<$1.IDENTIFIERVal<<std::endl;
+        print_value( $1.rval, std::cout );
     }
     | Xexp PLUS Xexp 
-    ;*/
+    ;
 
 
 primary_expression
@@ -247,7 +246,7 @@ postfix_expression
     {
         $$ = static_cast<PostfixExpression>($1);
     }
-	| postfix_expression "(" ")"                                                //TODO: finish. This and the next grammer are Funtion Call.
+	| postfix_expression "(" ")"                                                //TODO: finish. This and next grammer are Funtion Call.
 	| postfix_expression "(" argument_expression_list ")"
 	| postfix_expression INC_OP
     {
@@ -312,7 +311,6 @@ unary_expression
                     ans = Builder.CreateFAdd(var, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(1.0)));
                 $$.type = UnaryExpression::Type::IDENTIFIER;
                 $$.rval = Builder.CreateStore(ans, NamedValues[$2.IDENTIFIERVal]);
-                
             }
     }
 	| DEC_OP unary_expression
@@ -328,7 +326,6 @@ unary_expression
                     ans = Builder.CreateFSub(var, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(1.0)));
                 $$.type = UnaryExpression::Type::IDENTIFIER;
                 $$.rval = Builder.CreateStore(ans, NamedValues[$2.IDENTIFIERVal]);
-                
             }
     }
 	| unary_operator cast_expression
@@ -650,15 +647,15 @@ relational_expression
 
         if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isDoubleTy() )
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateFCmpOLT( var_relational, var_shift),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
         else if(var_relational->getType()->isIntegerTy() && var_shift->getType()->isIntegerTy())
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateICmpSLT( var_relational, var_shift),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
 
     }
@@ -688,15 +685,15 @@ relational_expression
 
         if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isDoubleTy() )
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateFCmpOGT( var_relational, var_shift),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
         else if(var_relational->getType()->isIntegerTy() && var_shift->getType()->isIntegerTy())
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateICmpSGT( var_relational, var_shift),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
     }
 	| relational_expression LE_OP shift_expression
@@ -725,15 +722,15 @@ relational_expression
 
         if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isDoubleTy() )
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateFCmpOLE( var_relational, var_shift),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
         else if(var_relational->getType()->isIntegerTy() && var_shift->getType()->isIntegerTy())
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateICmpSLE( var_relational, var_shift),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
     }
 	| relational_expression GE_OP shift_expression
@@ -762,15 +759,15 @@ relational_expression
 
         if( var_relational->getType()->isDoubleTy() && var_shift->getType()->isDoubleTy() )
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateFCmpOGE( var_relational, var_shift),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
         else if(var_relational->getType()->isIntegerTy() && var_shift->getType()->isIntegerTy())
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateICmpSGE( var_relational, var_shift),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
     }
 	;
@@ -806,15 +803,15 @@ equality_expression
 
         if( var_equality->getType()->isDoubleTy() && var_relational->getType()->isDoubleTy() )
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateFCmpOEQ( var_equality, var_relational),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
         else if(var_equality->getType()->isIntegerTy() && var_relational->getType()->isIntegerTy())
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateICmpEQ( var_equality, var_relational),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
     }
 	| equality_expression NE_OP relational_expression
@@ -843,15 +840,15 @@ equality_expression
 
         if( var_equality->getType()->isDoubleTy() && var_relational->getType()->isDoubleTy() )
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateFCmpONE( var_equality, var_relational),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
         else if(var_equality->getType()->isIntegerTy() && var_relational->getType()->isIntegerTy())
         {
-            $$.rval = Builder.CreateIntCast(
+            $$.rval = Builder.CreateZExt(
                 Builder.CreateICmpNE( var_equality, var_relational),
-                llvm::Type::getInt32Ty(TheContext), true);
+                llvm::Type::getInt32Ty(TheContext));
         }
     }
 	;
@@ -957,13 +954,13 @@ logical_and_expression
         
         $$.type = LogicalAndExpression::Type::RVALUE;
         
-        $$.rval = Builder.CreateIntCast(
+        $$.rval = Builder.CreateZExt(
             Builder.CreateAnd(
                 (var_logical->getType()->isIntegerTy()  ? Builder.CreateICmpNE(var_logical,llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)))
                                                         : Builder.CreateFCmpONE(var_logical, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(0.0)))),
                 (var_inclusive->getType()->isIntegerTy()?Builder.CreateICmpNE(var_inclusive, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)))
                                                         : Builder.CreateFCmpONE(var_inclusive,llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(0.0))))),
-           llvm::Type::getInt32Ty(TheContext),true);
+           llvm::Type::getInt32Ty(TheContext));
     }
 	;
 
@@ -987,14 +984,13 @@ logical_or_expression
         
         $$.type = LogicalOrExpression::Type::RVALUE;
         
-        $$.rval = Builder.CreateIntCast(
+        $$.rval = Builder.CreateZExt(
             Builder.CreateOr(
                 (var_logical_or->getType()->isIntegerTy()   ? Builder.CreateICmpNE(var_logical_or,llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)))
                                                             : Builder.CreateFCmpONE(var_logical_or, llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(0.0)))),
                 (var_logical_and->getType()->isIntegerTy()  ? Builder.CreateICmpNE(var_logical_and, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)))
                                                             : Builder.CreateFCmpONE(var_logical_and,llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(0.0))))),
-           llvm::Type::getInt32Ty(TheContext),true);
-
+           llvm::Type::getInt32Ty(TheContext));
     }
 	;
 

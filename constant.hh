@@ -8,7 +8,7 @@ class I_Constant
     private:
         struct type_def
         {
-            enum type
+            enum type : int
             {
                 INT,
                 UINT,
@@ -55,7 +55,7 @@ class F_Constant
     private:
         struct type_def
         {
-            enum type
+            enum type : int
             {
                 FLOAT,
                 DOUBLE,
