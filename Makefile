@@ -29,5 +29,11 @@ parser.cc: parser.yy $(HEADERS)
 parser.o: parser.hh $(HEADERS)
 scanner.o: parser.hh $(HEADERS)
 
+test:noMiniC
+	pytest -v
+
 clean:
 	rm -f *.o parser.hh parser.cc scanner.cc location.hh
+cleanall:
+	rm -f noMiniC *.o parser.hh parser.cc scanner.cc location.hh
+	

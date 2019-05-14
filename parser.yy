@@ -350,7 +350,8 @@ unary_expression
                 break;
             case '!':
                 if(var->getType()->isIntegerTy())
-                    $$.rval = Builder.CreateICmpEQ(var, llvm::Constant::getNullValue(llvm::Type::getInt32Ty(TheContext)));
+                    $$.rval = Builder.CreateZExt( Builder.CreateICmpEQ(var, llvm::Constant::getNullValue(llvm::Type::getInt32Ty(TheContext))),
+                                                llvm::Type::getInt32Ty(TheContext));
                 break;
             case '~':
                 if(var->getType()->isIntegerTy())
