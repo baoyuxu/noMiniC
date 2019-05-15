@@ -3,6 +3,11 @@
 
 #include "common.hh"
 
+struct Unit_head
+{
+    llvm::Function *func;
+    llvm::BasicBlock *bb;
+};
 
 class Initializer
 {

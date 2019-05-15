@@ -19,7 +19,7 @@
 //    static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
     static void InitializeModuleAndPassManager();
     llvm::Value *LogErrorV(const char *Str);
-    static llvm::AllocaInst *CreateEntryBlockAlloca(llvm::Function *TheFunction, const std::string &VarName);
+    static llvm::AllocaInst *CreateEntryBlockAlloca( llvm::Type *TheType, llvm::Function *TheFunction, const std::string &VarName);
 
     void start_parser();
     void end_parser();
@@ -143,14 +143,25 @@
 %type<InitDeclaratorList> init_declarator_list
 
 %type<llvm::Value *> Xexp
-
+%type<Unit_head> unit_head
 //%start translation_unit
 %start unit
+
 %%
 
 unit
-    : Xexp 
+    : unit_head Xexp 
     {
+        Builder.CreateRetVoid();
+        llvm::verifyFunction(*($1.func));
+        //std::cout<<" Function verify"<<std::endl;
+    }
+    ;
+
+unit_head
+    : %empty 
+    {
+        //std::cout<<" Function Created"<<std::endl;
         llvm::Function *f = llvm::Function::Create(
             llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), std::vector<llvm::Type*>(), false),
             llvm::Function::ExternalLinkage,
@@ -159,8 +170,8 @@ unit
             );
         llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", f);
         Builder.SetInsertPoint(BB);
-        Builder.CreateRetVoid();
-        llvm::verifyFunction(*f);
+        $$.func = f;
+        $$.bb = BB;
     }
 
 Xexp
@@ -168,9 +179,11 @@ Xexp
     { 
         print_value( $1.rval, std::cout );
     }
+    | declaration Xexp
+    {
+        $$ = $2;
+    }
     ;
-
-
 
 primary_expression
 	: IDENTIFIER{$$.type = PrimaryExpression::Type::IDENTIFIER; $$.IDENTIFIERVal = $1;}
@@ -219,7 +232,6 @@ constant
 enumeration_constant		/* before it has been defined as such */
 	: IDENTIFIER
 	;
-
 
 /*
 string
@@ -1323,6 +1335,51 @@ constant_expression
 declaration
 	: declaration_specifiers ";"    //TODO: Throw warning
 	| declaration_specifiers init_declarator_list ";"
+    {
+        /*std::cout<<"Func used"<<std::endl;
+        if( $1.type == DeclarationSpecifiers::Type::INT )
+            std::cout<<"INT"<<std::endl;
+        else if( $1.type == DeclarationSpecifiers::Type::DOUBLE )
+            std::cout<<"DOUBLE"<<std::endl;
+        for(auto it = $2.id_value.cbegin(); it!=$2.id_value.cend(); ++it)
+        {
+            llvm::Value *val = it->second;
+            if( val == nullptr )
+                val = llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true));
+            std::cout<<it->first<<": ";
+            print_value( val , std::cout);
+        }*/
+
+        llvm::Function *the_function = Builder.GetInsertBlock()->getParent(); 
+        if( $1.type == DeclarationSpecifiers::Type::INT )
+        {
+            for(auto it = $2.id_value.cbegin(); it!=$2.id_value.cend(); ++it)
+            {
+                llvm::Value *val = it->second;
+                if( val == nullptr )
+                    val = llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true));
+                if( val->getType()->isDoubleTy() )
+                    val = Builder.CreateFPToSI( val, llvm::Type::getInt32Ty( TheContext));
+                llvm::AllocaInst *alloc =  CreateEntryBlockAlloca( llvm::Type::getInt32Ty(TheContext), the_function, it->first);
+                Builder.CreateStore( val, alloc);
+                NamedValues[it->first] = alloc;
+            }
+        }
+        else if( $1.type == DeclarationSpecifiers::Type::DOUBLE )
+        {
+            for(auto it = $2.id_value.cbegin(); it!=$2.id_value.cend(); ++it)
+            {
+                llvm::Value *val = it->second;
+                if( val == nullptr )
+                    val = llvm::ConstantFP::get(llvm::Type::getDoubleTy(TheContext), llvm::APFloat(0.0));
+                if( val->getType()->isIntegerTy() )
+                    val = Builder.CreateSIToFP( val, llvm::Type::getDoubleTy( TheContext));
+                llvm::AllocaInst *alloc = CreateEntryBlockAlloca( llvm::Type::getDoubleTy(TheContext), the_function, it->first);
+                Builder.CreateStore( val, alloc);
+                NamedValues[it->first] = alloc;
+            }
+        }
+    }
 	/*| static_assert_declarationi*/
 	;
 
@@ -1509,7 +1566,6 @@ direct_declarator
     */
 	;
 
-
 /*pointer
 	: "*" type_qualifier_list pointer
 	| "*" type_qualifier_list
@@ -1521,7 +1577,6 @@ direct_declarator
 	: type_qualifier
 	| type_qualifier_list type_qualifier
 	;*/
-
 
 parameter_type_list
 	: parameter_list "," ELLIPSIS
@@ -1638,7 +1693,7 @@ labeled_statement
 compound_statement
 	: "{" "}"
 	| "{"  block_item_list "}"
-	;
+    ;
 
 block_item_list
 	: block_item
@@ -1727,7 +1782,7 @@ llvm::Value *LogErrorV(const char *Str)
 
 void InitializeModuleAndPassManager() {
   // Open a new module.
-  TheModule = llvm::make_unique<llvm::Module>("my cool jit", TheContext);
+    TheModule = llvm::make_unique<llvm::Module>("my cool jit", TheContext);
 }
 
 void start_parser()
@@ -1740,57 +1795,57 @@ void end_parser()
     using namespace llvm;
     using namespace llvm::sys;
     InitializeAllTargetInfos();
-  InitializeAllTargets();
-  InitializeAllTargetMCs();
-  InitializeAllAsmParsers();
-  InitializeAllAsmPrinters();
-
-  auto TargetTriple = sys::getDefaultTargetTriple();
-  TheModule->setTargetTriple(TargetTriple);
-
-  std::string Error;
-  auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
-
-  // Print an error and exit if we couldn't find the requested target.
-  // This generally occurs if we've forgotten to initialise the
-  // TargetRegistry or we have a bogus target triple.
-  if (!Target) {
-    errs() << Error;
+    InitializeAllTargets();
+    InitializeAllTargetMCs();
+    InitializeAllAsmParsers();
+    InitializeAllAsmPrinters();
+    
+    auto TargetTriple = sys::getDefaultTargetTriple();
+    TheModule->setTargetTriple(TargetTriple);
+    
+    std::string Error;
+    auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
+    
+    // Print an error and exit if we couldn't find the requested target.
+    // This generally occurs if we've forgotten to initialise the
+    // TargetRegistry or we have a bogus target triple.
+    if (!Target) {
+        errs() << Error;
+        return ;
+    }
+    
+    auto CPU = "generic";
+    auto Features = "";
+    
+    TargetOptions opt;
+    auto RM = Optional<Reloc::Model>();
+    auto TheTargetMachine =
+        Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM); //Crash
+    
+    TheModule->setDataLayout(TheTargetMachine->createDataLayout());
+    
+    auto Filename = "output.o";
+    std::error_code EC;
+    raw_fd_ostream dest(Filename, EC, sys::fs::F_None);
+    
+    if (EC) {
+        errs() << "Could not open file: " << EC.message();
+        return ;
+    }
+    
+    legacy::PassManager pass;
+    auto FileType = TargetMachine::CGFT_ObjectFile;
+    
+    if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+        errs() << "TheTargetMachine can't emit a file of this type";
+        return ;
+    }
+    
+    pass.run(*TheModule);
+    dest.flush();
+    
+    outs() << "Wrote " << Filename << "\n";
+    
     return ;
-  }
-
-  auto CPU = "generic";
-  auto Features = "";
-
-  TargetOptions opt;
-  auto RM = Optional<Reloc::Model>();
-  auto TheTargetMachine =
-      Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM); //Crash
-
-  TheModule->setDataLayout(TheTargetMachine->createDataLayout());
-
-  auto Filename = "output.o";
-  std::error_code EC;
-  raw_fd_ostream dest(Filename, EC, sys::fs::F_None);
-
-  if (EC) {
-    errs() << "Could not open file: " << EC.message();
-    return ;
-  }
-
-  legacy::PassManager pass;
-  auto FileType = TargetMachine::CGFT_ObjectFile;
-
-  if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
-    errs() << "TheTargetMachine can't emit a file of this type";
-    return ;
-  }
-
-  pass.run(*TheModule);
-  dest.flush();
-
-  outs() << "Wrote " << Filename << "\n";
-
-  return ;
 }
 
