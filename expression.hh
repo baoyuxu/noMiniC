@@ -3,15 +3,16 @@
 
 #include "common.hh"
 
-class InitDeclarator
+
+class Initializer
 {
     private:
         struct Type_def
         {
             enum type : int
             {
-                INT,
-                DOUBLE
+                IDENTIFIER,
+                RVALUE
             };
         };
     public:
@@ -19,8 +20,28 @@ class InitDeclarator
 
         Type type;
         std::string IDENTIFIERVal;
-        int32_t INTval;
-        double DOUBLEval;
+        llvm::Value *rval;
+};
+
+class InitDeclaratorList
+{
+    public:
+        std::vector<std::pair<std::string, llvm::Value *>> id_value;
+};
+
+class InitDeclarator
+{
+    private:
+    public:
+        std::string IDENTIFIERVal;
+        llvm::Value* val;
+
+        explicit operator InitDeclaratorList()
+        {
+            InitDeclaratorList o;
+            o.id_value.push_back( std::make_pair(IDENTIFIERVal, val) );
+            return o;
+        }
 };
 
 class Declarator
@@ -43,8 +64,7 @@ class Declarator
         {
             InitDeclarator o;
             o.IDENTIFIERVal = std::move(IDENTIFIERVal);
-            o.INTval = 0;
-            o.DOUBLEval = 0;
+            o.val = nullptr;
             return o;
         }
 
@@ -188,6 +208,18 @@ class AssignmentExpression
                 o.type = Expression::Type::IDENTIFIER;
             else if(type == AssignmentExpression::Type::RVALUE)
                 o.type = Expression::Type::RVALUE;
+            return o;
+        }
+
+        explicit operator Initializer()
+        {
+            Initializer o;
+            o.IDENTIFIERVal = IDENTIFIERVal;
+            o.rval = rval;
+            if(type == AssignmentExpression::Type::IDENTIFIER)
+                o.type = Initializer::Type::IDENTIFIER;
+            else if(type == AssignmentExpression::Type::RVALUE)
+                o.type = Initializer::Type::RVALUE;
             return o;
         }
 

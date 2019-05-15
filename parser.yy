@@ -133,17 +133,18 @@
 %type<AssignmentExpression> assignment_expression
 %type<AssignmentOperator> assignment_operator
 %type<Expression> expression
+
 %type<TypeSpecifier> type_specifier
 %type<DeclarationSpecifiers> declaration_specifiers
 %type<DirectDeclarator> direct_declarator
 %type<Declarator> declarator
 %type<InitDeclarator> init_declarator
-
-//%type<llvm::Value *> string
-
-//%start translation_unit
+%type<Initializer> initializer
+%type<InitDeclaratorList> init_declarator_list
 
 %type<llvm::Value *> Xexp
+
+//%start translation_unit
 %start unit
 %%
 
@@ -167,8 +168,8 @@ Xexp
     { 
         print_value( $1.rval, std::cout );
     }
-    | Xexp PLUS Xexp 
     ;
+
 
 
 primary_expression
@@ -1346,12 +1347,23 @@ declaration_specifiers
 	;*/
 
 init_declarator_list
-	: init_declarator
+	: init_declarator { $$ = static_cast<InitDeclaratorList>( $1 ); }
 	| init_declarator_list "," init_declarator
+    {
+        $1.id_value.push_back( std::make_pair( $3.IDENTIFIERVal, $3.val ) );
+        $$.id_value = std::move( $1.id_value );
+    }
 	;
 
 init_declarator
 	: declarator "=" initializer
+    {
+        $$.IDENTIFIERVal = $1.IDENTIFIERVal;
+        if($3.type == Initializer::Type::IDENTIFIER) 
+            $$.val = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str()); 
+        else if($3.type == Initializer::Type::RVALUE) 
+            $$.val = $3.rval; 
+    }
 	| declarator { $$ = static_cast<InitDeclarator>($1); }
 	;
 
@@ -1573,7 +1585,10 @@ direct_abstract_declarator
 	;*/
 
 initializer
-    : assignment_expression // TODO: FROM THIS 
+    : assignment_expression 
+    {
+        $$ = static_cast<Initializer>($1);
+    }
     ;
 	/*: "{" initializer_list "}"
 	| "{" initializer_list "," "}"
