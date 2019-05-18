@@ -17,7 +17,7 @@ class driver
 {
     public:
         driver()
-            :trace_parsing(false), trace_scanning(false)
+            :trace_parsing(false), trace_scanning(false), emit_obj( false )
         {}
 
         std::string result;
@@ -30,7 +30,8 @@ class driver
             parse.set_debug_level (trace_parsing);
             start_parser();
             int res = parse ();
-            end_parser();
+            if( emit_obj )
+                end_parser();
             scan_end ();
             return res;
         }
@@ -41,6 +42,7 @@ class driver
         void scan_begin();
         void scan_end();
         bool trace_scanning;
+        bool emit_obj;
 
         yy::location location;
 

@@ -20,10 +20,9 @@
     static void InitializeModuleAndPassManager();
     llvm::Value *LogErrorV(const char *Str);
     static llvm::AllocaInst *CreateEntryBlockAlloca( llvm::Type *TheType, llvm::Function *TheFunction, const std::string &VarName);
-
+    
     void start_parser();
     void end_parser();
-
 
 }
 
@@ -141,31 +140,36 @@
 %type<InitDeclarator> init_declarator
 %type<Initializer> initializer
 %type<InitDeclaratorList> init_declarator_list
+%type<FunctionDeclaration> function_declaration
+%type<FunctionDeclarationList> function_declaration_list
 
-%type<llvm::Value *> Xexp
+//%type<llvm::Value *> Xexp
 %type<Unit_head> unit_head
-//%start translation_unit
-%start unit
+%start translation_unit
+//%start unit
 
 %%
 
 unit
+    : function_definition 
+    | unit function_definition
+    ;
+
+/*unit
     : unit_head Xexp 
     {
         Builder.CreateRetVoid();
         llvm::verifyFunction(*($1.func));
-        //std::cout<<" Function verify"<<std::endl;
     }
     ;
 
 unit_head
     : %empty 
     {
-        //std::cout<<" Function Created"<<std::endl;
         llvm::Function *f = llvm::Function::Create(
             llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), std::vector<llvm::Type*>(), false),
             llvm::Function::ExternalLinkage,
-            "test",
+            "main",
             TheModule.get()
             );
         llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", f);
@@ -175,15 +179,9 @@ unit_head
     }
 
 Xexp
-    :expression
-    { 
-        print_value( $1.rval, std::cout );
-    }
-    | declaration Xexp
-    {
-        $$ = $2;
-    }
-    ;
+    : statement
+    | Xexp statement
+    ;*/
 
 primary_expression
 	: IDENTIFIER{$$.type = PrimaryExpression::Type::IDENTIFIER; $$.IDENTIFIERVal = $1;}
@@ -1438,6 +1436,8 @@ type_specifier
     { $$.type = TypeSpecifier::Type::INT; }
     | DOUBLE 
     { $$.type = TypeSpecifier::Type::DOUBLE; }
+    | VOID
+    { $$.type = TypeSpecifier::Type::VOID; }
     ;
 	/*: VOID
 	| CHAR
@@ -1676,13 +1676,21 @@ designator
 	;*/
 
 statement
-	: labeled_statement
+    : compound_statement 
+    | expression_statement 
+    | jump_statement
+    ;
+    /*
+	selection_statement TODO: to complete
+	iteration_statement
+    */
+	/*: labeled_statement
 	| compound_statement
 	| expression_statement
 	| selection_statement
 	| iteration_statement
 	| jump_statement
-	;
+	;*/
 
 labeled_statement
 	: IDENTIFIER ":" statement
@@ -1726,12 +1734,42 @@ iteration_statement
 	;
 
 jump_statement
-	: GOTO IDENTIFIER ";"
+    : RETURN ";"
+    {
+        Builder.CreateRetVoid();
+        llvm::verifyFunction( *(Builder.GetInsertBlock()->getParent()));
+    }
+    | RETURN expression ";"
+    {
+        llvm::Function *the_function = Builder.GetInsertBlock()->getParent(); 
+        llvm::Type *return_type = the_function->getReturnType();
+        llvm::Value *ret_val = nullptr;
+        if( $2.type == Expression::Type::IDENTIFIER )
+            ret_val = Builder.CreateLoad( NamedValues[$2.IDENTIFIERVal], $2.IDENTIFIERVal.c_str() );
+        else if( $2.type == Expression::Type::RVALUE )
+            ret_val = $2.rval;
+
+        if( return_type->isIntegerTy() )
+        {
+            if( ret_val->getType()->isDoubleTy() )
+                ret_val = Builder.CreateFPToSI( ret_val, llvm::Type::getInt32Ty(TheContext) );
+            Builder.CreateRet( ret_val );
+        }
+        else if( return_type->isDoubleTy())
+        {
+            if( ret_val->getType()->isIntegerTy( ))
+                ret_val = Builder.CreateSIToFP( ret_val, llvm::Type::getDoubleTy( TheContext));
+            Builder.CreateRet( ret_val );
+        }
+        llvm::verifyFunction( *the_function );
+    }
+    ;
+/*	: GOTO IDENTIFIER ";"
 	| CONTINUE ";"
 	| BREAK ";"
 	| RETURN ";"
 	| RETURN expression ";"
-	;
+	;*/
 
 translation_unit
 	: external_declaration
@@ -1743,15 +1781,99 @@ external_declaration
 	| declaration
 	;
 
-function_definition
-	: declaration_specifiers declarator declaration_list compound_statement
-	| declaration_specifiers declarator compound_statement
-	;
+/*function_definition
+	: declaration_specifiers declarator declaration_list function_definition_helper compound_statement
+	| declaration_specifiers declarator function_definition_helper compound_statement
+	;*/
+/*function_definition
+	: declaration_specifiers declarator function_declaration_list function_definition_helper compound_statement
+	| declaration_specifiers declarator function_definition_helper compound_statement
+	;*/
 
-declaration_list
+function_definition
+    : function_prototype compound_statement 
+    ;
+
+function_prototype
+    : declaration_specifiers declarator "(" function_declaration_list ")"
+    {
+        llvm::Type *ret_type = nullptr; 
+        if( $1.type == DeclarationSpecifiers::Type::INT )
+            ret_type = llvm::Type::getInt32Ty(TheContext);
+        else if( $1.type == DeclarationSpecifiers::Type::DOUBLE )
+            ret_type = llvm::Type::getDoubleTy(TheContext);
+        else if( $1.type == DeclarationSpecifiers::Type::VOID )
+            ret_type = llvm::Type::getVoidTy(TheContext);
+        std::string function_name = $2.IDENTIFIERVal;
+
+        std::vector<llvm::Type *> arg_type( $4.type_id.size() );
+        std::vector<std::string> arg_name( $4.type_id.size() );
+        for( auto &arg : $4.type_id )
+        {
+            arg_type.push_back( arg.first );
+            arg_name.push_back( arg.second );
+        }
+        llvm::Function *func = llvm::Function::Create( llvm::FunctionType::get( ret_type, arg_type, false ),
+                                llvm::Function::ExternalLinkage, function_name, TheModule.get());
+        unsigned int idx=0;
+        for( auto &arg : func->args() )
+            arg.setName( arg_name[idx++]);
+        llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", func );
+        Builder.SetInsertPoint( BB );
+        NamedValues.clear();
+        for (auto &Arg : func->args()) 
+        {
+            llvm::AllocaInst *Alloca = CreateEntryBlockAlloca(Arg.getType(), func, Arg.getName());
+            Builder.CreateStore(&Arg, Alloca);
+            NamedValues[Arg.getName()] = Alloca;
+        }
+    }
+    | declaration_specifiers declarator "(" ")"
+    {
+        llvm::Type *ret_type = nullptr; 
+        if( $1.type == DeclarationSpecifiers::Type::INT )
+            ret_type = llvm::Type::getInt32Ty(TheContext);
+        else if( $1.type == DeclarationSpecifiers::Type::DOUBLE )
+            ret_type = llvm::Type::getDoubleTy(TheContext);
+        else if( $1.type == DeclarationSpecifiers::Type::VOID )
+            ret_type = llvm::Type::getVoidTy(TheContext);
+        std::string function_name = $2.IDENTIFIERVal;
+        
+        llvm::Function *func = llvm::Function::Create( llvm::FunctionType::get( ret_type, std::vector<llvm::Type*>(), false ), 
+                                llvm::Function::ExternalLinkage, function_name, TheModule.get());
+        llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", func );
+        Builder.SetInsertPoint( BB );
+        NamedValues.clear();
+    }
+    ;
+
+function_declaration_list 
+    : function_declaration 
+    {
+        $$.type_id.push_back(std::make_pair($1.type, $1.IDENTIFIERVal));
+    }
+    | function_declaration_list "," function_declaration
+    {
+        $1.type_id.push_back(std::make_pair($3.type, $3.IDENTIFIERVal));
+        $$.type_id = std::move( $1.type_id );
+    }
+    ;
+
+function_declaration 
+    : declaration_specifiers init_declarator
+    {
+        if( $1.type == DeclarationSpecifiers::Type::INT )
+            $$.type = llvm::Type::getInt32Ty( TheContext );
+        else if( $1.type == DeclarationSpecifiers::Type::DOUBLE )
+            $$.type = llvm::Type::getDoubleTy( TheContext );
+        $$.IDENTIFIERVal = $2.IDENTIFIERVal;
+    }
+
+/*declaration_list
 	: declaration
 	| declaration_list declaration
 	;
+*/
 
 %%
 #include <stdio.h>

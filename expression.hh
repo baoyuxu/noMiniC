@@ -3,6 +3,20 @@
 
 #include "common.hh"
 
+class FunctionDeclarationList
+{
+    public:
+        std::vector<std::pair<llvm::Type *,std::string>> type_id;
+};
+
+class FunctionDeclaration
+{
+    public:
+
+        llvm::Type *type;
+        std::string IDENTIFIERVal;
+};
+
 struct Unit_head
 {
     llvm::Function *func;
@@ -108,7 +122,8 @@ class DeclarationSpecifiers
             enum type : int
             {
                 INT,
-                DOUBLE
+                DOUBLE,
+                VOID
             };
         };
     public:
@@ -126,7 +141,8 @@ class TypeSpecifier
             enum type : int
             {
                 INT,
-                DOUBLE
+                DOUBLE,
+                VOID
             };
         };
     public:
@@ -137,7 +153,12 @@ class TypeSpecifier
         explicit operator DeclarationSpecifiers()
         {
             DeclarationSpecifiers o;
-            o.type = type==Type::INT ? DeclarationSpecifiers::Type::INT : DeclarationSpecifiers::Type::DOUBLE;
+            if( type == Type::INT )
+                o.type = DeclarationSpecifiers::Type::INT;
+            else if( type == Type::DOUBLE )
+                o.type = DeclarationSpecifiers::Type::DOUBLE;
+            else if( type == Type::VOID )
+                o.type = DeclarationSpecifiers::Type::VOID;
             return o;
         }
 };
