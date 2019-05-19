@@ -4,13 +4,13 @@
 BISON=bison
 CXX=clang++
 FLEX=flex
-CXXFLAG=`llvm-config --cxxflags --ldflags --system-libs --libs core mcjit native` -g -std=c++17 -Wunknown-warning-option 
-CXXFLAGS=`llvm-config --cxxflags` -Wall -fexceptions -O2 -g -std=c++17 -Wno-unknown-warning-option -Wno-unused-function
-LINKFLAGS=`llvm-config --ldflags --libs` -lpthread -g -lncurses -std=c++17
+CXXFLAG=`llvm-config --cxxflags --ldflags --system-libs --libs core mcjit native` -std=c++17 -Wunknown-warning-option 
+CXXFLAGS=`llvm-config --cxxflags` -Wall -fexceptions -O2 -std=c++17 -Wno-unknown-warning-option -Wno-unused-function
+LINKFLAGS=`llvm-config --ldflags --libs` -lpthread -lncurses -std=c++17
 BISONFLAGS=-Wno-other
 HEADERS=constant.hh expression.hh common.hh safe_enum.hh driver.hh
 
-all: noMiniC
+all: noMiniC Xlib.o
 
 %.cc %.hh: %.yy
 	$(BISON) $(BISONFLAGS) -o $*.cc $<
@@ -23,6 +23,9 @@ all: noMiniC
 
 noMiniC: driver.o parser.o scanner.o test.o
 	$(CXX) $(LINKFLAGS) -o $@ $^
+
+Xlib.o : Xlib.c
+	clang -std=c11 -O2 -c -Wall -o Xlib.o Xlib.c
 
 scanner.cc: scanner.ll $(HEADERS)
 parser.cc: parser.yy $(HEADERS)

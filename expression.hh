@@ -254,6 +254,12 @@ class AssignmentExpression
         Type type;
 };
 
+class ArgumentExpressionList
+{
+    public:
+        std::vector<llvm::Value *> args;
+};
+
 class ConditionalExpression
 {
     private:

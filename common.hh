@@ -15,6 +15,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassInstrumentation.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
@@ -32,13 +33,14 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/GlobalValue.h"
-#include "llvm/Support/TargetSelect.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
+#include "llvm/PassRegistry.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include <algorithm>
 #include <cassert>
 #include <cctype>

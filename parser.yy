@@ -1,7 +1,6 @@
 %skeleton "lalr1.cc"
 %require "3.2"
 %defines
-
 %define api.token.constructor
 %define api.value.type variant
 %define parse.assert
@@ -16,6 +15,7 @@
     static llvm::IRBuilder<> Builder(TheContext);
     static std::unique_ptr<llvm::Module> TheModule;
     static std::map<std::string, llvm::AllocaInst *> NamedValues;
+    static std::unique_ptr<llvm::legacy::FunctionPassManager> TheFPM;
 //    static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
     static void InitializeModuleAndPassManager();
     llvm::Value *LogErrorV(const char *Str);
@@ -143,16 +143,52 @@
 %type<FunctionDeclaration> function_declaration
 %type<FunctionDeclarationList> function_declaration_list
 
+%type<ArgumentExpressionList> argument_expression_list
+
 //%type<llvm::Value *> Xexp
 %type<Unit_head> unit_head
-%start translation_unit
-//%start unit
+//%start translation_unit
+%start unit
 
 %%
 
 unit
+    : unit_head X
+    ;
+
+X
     : function_definition 
-    | unit function_definition
+    | X function_definition
+    ;
+
+unit_head
+    :%empty
+    {
+        llvm::Function::Create(
+            llvm::FunctionType::get(llvm::Type::getInt32Ty(TheContext), std::vector<llvm::Type*>(), false),
+            llvm::Function::ExternalLinkage,
+            "read_int",
+            TheModule.get()
+            );
+        llvm::Function::Create(
+            llvm::FunctionType::get(llvm::Type::getDoubleTy(TheContext), std::vector<llvm::Type*>(), false),
+            llvm::Function::ExternalLinkage,
+            "read_double",
+            TheModule.get()
+            );
+        llvm::Function::Create(
+            llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), std::vector<llvm::Type*>{llvm::Type::getInt32Ty(TheContext)}, false),
+            llvm::Function::ExternalLinkage,
+            "print_int",
+            TheModule.get()
+            );
+        llvm::Function::Create(
+            llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), std::vector<llvm::Type*>{llvm::Type::getDoubleTy(TheContext)}, false),
+            llvm::Function::ExternalLinkage,
+            "print_double",
+            TheModule.get()
+            );
+    }
     ;
 
 /*unit
@@ -160,6 +196,7 @@ unit
     {
         Builder.CreateRetVoid();
         llvm::verifyFunction(*($1.func));
+        TheFPM->run(*($1,func));
     }
     ;
 
@@ -257,8 +294,18 @@ postfix_expression
     {
         $$ = static_cast<PostfixExpression>($1);
     }
-	| postfix_expression "(" ")"                                                //TODO: finish. This and next grammer are Funtion Call.
+	| postfix_expression "(" ")"
+    {
+        llvm::Function *func = TheModule->getFunction( $1.IDENTIFIERVal );
+        $$.type = PostfixExpression::Type::RVALUE;
+        $$.rval = Builder.CreateCall( func, std::vector<llvm::Value *>(), "calltmp" );
+    }
 	| postfix_expression "(" argument_expression_list ")"
+    {
+        llvm::Function *func = TheModule->getFunction( $1.IDENTIFIERVal );
+        $$.type = PostfixExpression::Type::RVALUE;
+        $$.rval = Builder.CreateCall( func, $3.args, "calltmp" );
+    }
 	| postfix_expression INC_OP
     {
         if($1.type == PostfixExpression::Type::IDENTIFIER)
@@ -301,7 +348,20 @@ postfix_expression
 
 argument_expression_list
 	: assignment_expression
+    {
+        if( $1.type == AssignmentExpression::Type::IDENTIFIER)
+            $$.args.push_back( Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str()) );
+        else if( $1.type == AssignmentExpression::Type::RVALUE )
+            $$.args.push_back( $1.rval );
+    }
 	| argument_expression_list "," assignment_expression
+    {
+        if( $3.type == AssignmentExpression::Type::IDENTIFIER)
+            $1.args.push_back( Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str()) );
+        else if( $3.type == AssignmentExpression::Type::RVALUE )
+            $1.args.push_back( $3.rval );
+        $$.args = std::move( $1.args );
+    }
 	;
 
 unary_expression
@@ -1738,6 +1798,7 @@ jump_statement
     {
         Builder.CreateRetVoid();
         llvm::verifyFunction( *(Builder.GetInsertBlock()->getParent()));
+        TheFPM->run( *(Builder.GetInsertBlock()->getParent()) );
     }
     | RETURN expression ";"
     {
@@ -1762,6 +1823,7 @@ jump_statement
             Builder.CreateRet( ret_val );
         }
         llvm::verifyFunction( *the_function );
+        TheFPM->run( *the_function );
     }
     ;
 /*	: GOTO IDENTIFIER ";"
@@ -1903,8 +1965,23 @@ llvm::Value *LogErrorV(const char *Str)
 }
 
 void InitializeModuleAndPassManager() {
-  // Open a new module.
-    TheModule = llvm::make_unique<llvm::Module>("my cool jit", TheContext);
+  TheModule = llvm::make_unique<llvm::Module>("my cool jit", TheContext);
+
+  // Create a new pass manager attached to it.
+  TheFPM = llvm::make_unique<llvm::legacy::FunctionPassManager>(TheModule.get());
+
+  // Promote allocas to registers.
+  TheFPM->add(llvm::createPromoteMemoryToRegisterPass());
+  // Do simple "peephole" optimizations and bit-twiddling optzns.
+  TheFPM->add(llvm::createInstructionCombiningPass());
+  // Reassociate expressions.
+  TheFPM->add(llvm::createReassociatePass());
+  // Eliminate Common SubExpressions.
+  TheFPM->add(llvm::createGVNPass());
+  // Simplify the control flow graph (deleting unreachable blocks, etc).
+  TheFPM->add(llvm::createCFGSimplificationPass());
+
+  TheFPM->doInitialization();
 }
 
 void start_parser()
