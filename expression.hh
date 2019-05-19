@@ -3,6 +3,22 @@
 
 #include "common.hh"
 
+class WhileHelper
+{
+    public:
+        llvm::BasicBlock *testBB;
+        llvm::BasicBlock *loopBB;
+        llvm::BasicBlock *endBB;
+};
+
+class SelectionHelper
+{
+    public:
+        llvm::BasicBlock *thenBB;
+        llvm::BasicBlock *elseBB;
+        llvm::BasicBlock *mergeBB;
+};
+
 class FunctionDeclarationList
 {
     public:

@@ -145,7 +145,11 @@
 
 %type<ArgumentExpressionList> argument_expression_list
 
-//%type<llvm::Value *> Xexp
+%type<SelectionHelper> selection_helper
+%type<SelectionHelper> statement_helper
+%type<WhileHelper> while_helper
+%type<WhileHelper> while_helper_helper
+
 %type<Unit_head> unit_head
 //%start translation_unit
 %start unit
@@ -186,6 +190,18 @@ unit_head
             llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), std::vector<llvm::Type*>{llvm::Type::getDoubleTy(TheContext)}, false),
             llvm::Function::ExternalLinkage,
             "print_double",
+            TheModule.get()
+            );
+        llvm::Function::Create(
+            llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), std::vector<llvm::Type*>(), false),
+            llvm::Function::ExternalLinkage,
+            "print_enter",
+            TheModule.get()
+            );
+        llvm::Function::Create(
+            llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), std::vector<llvm::Type*>{llvm::Type::getInt32Ty(TheContext)}, false),
+            llvm::Function::ExternalLinkage,
+            "print_char",
             TheModule.get()
             );
     }
@@ -1638,7 +1654,7 @@ direct_declarator
 	| type_qualifier_list type_qualifier
 	;*/
 
-parameter_type_list
+/*parameter_type_list
 	: parameter_list "," ELLIPSIS
 	| parameter_list
 	;
@@ -1651,16 +1667,16 @@ parameter_list
 parameter_declaration
 	: declaration_specifiers declarator
 	| declaration_specifiers
-    ;
+    ;*/
 	/*: declaration_specifiers declarator
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers
 	;*/
 
-identifier_list
+/*identifier_list
 	: IDENTIFIER
 	| identifier_list "," IDENTIFIER
-	;
+	;*/
 
 /*type_name
 	: specifier_qualifier_list
@@ -1739,10 +1755,11 @@ statement
     : compound_statement 
     | expression_statement 
     | jump_statement
+    | selection_statement 
+	| iteration_statement
     ;
     /*
-	selection_statement TODO: to complete
-	iteration_statement
+	TODO: to complete
     */
 	/*: labeled_statement
 	| compound_statement
@@ -1752,11 +1769,11 @@ statement
 	| jump_statement
 	;*/
 
-labeled_statement
+/*labeled_statement
 	: IDENTIFIER ":" statement
 	| CASE constant_expression ":" statement
 	| DEFAULT ":" statement
-	;
+	;*/
 
 compound_statement
 	: "{" "}"
@@ -1779,26 +1796,105 @@ expression_statement
 	;
 
 selection_statement
-	: IF "(" expression ")" statement ELSE statement
-	| IF "(" expression ")" statement
-	| SWITCH "(" expression ")" statement
-	;
+	: statement_helper ELSE statement
+    {
+        Builder.CreateBr( $1.mergeBB );
+        Builder.GetInsertBlock()->getParent()->getBasicBlockList().push_back( $1.mergeBB );
+        Builder.SetInsertPoint( $1.mergeBB );
+    }
+    ;
+	/*| SWITCH "(" expression ")" statement
+	;*/
+statement_helper
+    : selection_helper statement
+    {
+        Builder.CreateBr( $1.mergeBB );
+        Builder.GetInsertBlock()->getParent()->getBasicBlockList().push_back( $1.elseBB );
+        Builder.SetInsertPoint( $1.elseBB );
+        $$.thenBB = $1.thenBB;
+        $$.elseBB = $1.elseBB;
+        $$.mergeBB = $1.mergeBB;
+    }
+    ;
+
+selection_helper
+    : IF "(" expression ")" 
+    { 
+        llvm::Value *condV = nullptr;
+        if( $3.type == Expression::Type::IDENTIFIER )
+            condV = Builder.CreateLoad( NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str( ));
+        else if( $3.type == Expression::Type::RVALUE )
+            condV = $3.rval;
+        
+        condV = Builder.CreateICmpNE( condV, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)), "ifcond");
+        llvm::BasicBlock *thenBB = llvm::BasicBlock::Create( TheContext, "then");
+        llvm::BasicBlock *elseBB = llvm::BasicBlock::Create( TheContext, "else" );
+        llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create( TheContext, "ifcont" );
+        Builder.CreateCondBr( condV, thenBB, elseBB );
+        Builder.GetInsertBlock()->getParent()->getBasicBlockList().push_back( thenBB );
+        Builder.SetInsertPoint( thenBB );
+        $$.thenBB = thenBB;
+        $$.elseBB = elseBB;
+        $$.mergeBB = mergeBB;
+    }
+    ;
 
 iteration_statement
-	: WHILE "(" expression ")" statement
+	: while_helper statement
+    {
+        Builder.CreateBr( $1.testBB );
+        Builder.GetInsertBlock()->getParent()->getBasicBlockList().push_back( $1.endBB );
+        Builder.SetInsertPoint( $1.endBB );
+    }
+    ;
+	/*: WHILE "(" expression ")" statement
 	| DO statement WHILE "(" expression ")" ";"
 	| FOR "(" expression_statement expression_statement ")" statement
 	| FOR "(" expression_statement expression_statement expression ")" statement
 	| FOR "(" declaration expression_statement ")" statement
 	| FOR "(" declaration expression_statement expression ")" statement
-	;
+	;*/
+while_helper
+    : while_helper_helper WHILE "(" expression ")" 
+    {
+        llvm::Value *condV = nullptr;
+        if( $4.type == Expression::Type::IDENTIFIER )
+            condV = Builder.CreateLoad( NamedValues[$4.IDENTIFIERVal], $4.IDENTIFIERVal.c_str( ));
+        else if( $4.type == Expression::Type::RVALUE )
+            condV = $4.rval;
+        
+        condV = Builder.CreateICmpNE( condV, llvm::ConstantInt::get(llvm::Type::getInt32Ty(TheContext), llvm::APInt(32, 0, true)));
+        Builder.CreateCondBr( condV, $1.loopBB, $1.endBB );
+
+        Builder.GetInsertBlock()->getParent()->getBasicBlockList().push_back( $1.loopBB );
+        Builder.SetInsertPoint( $1.loopBB );
+        
+        $$.testBB = $1.testBB;
+        $$.loopBB = $1.loopBB;
+        $$.endBB = $1.endBB;
+
+    }
+    ;
+while_helper_helper
+    : %empty
+    {
+        llvm::BasicBlock *testBB = llvm::BasicBlock::Create(TheContext, "testBB", Builder.GetInsertBlock()->getParent());
+        llvm::BasicBlock *loopBB = llvm::BasicBlock::Create(TheContext, "loopBB");
+        llvm::BasicBlock *endBB = llvm::BasicBlock::Create(TheContext, "endBB");
+        Builder.CreateBr( testBB );
+        Builder.SetInsertPoint( testBB );
+        $$.testBB = testBB;
+        $$.loopBB = loopBB;
+        $$.endBB = endBB;
+    }
+    ;
 
 jump_statement
     : RETURN ";"
     {
         Builder.CreateRetVoid();
         llvm::verifyFunction( *(Builder.GetInsertBlock()->getParent()));
-        TheFPM->run( *(Builder.GetInsertBlock()->getParent()) );
+        //TheFPM->run( *(Builder.GetInsertBlock()->getParent()) );
     }
     | RETURN expression ";"
     {
@@ -1823,7 +1919,7 @@ jump_statement
             Builder.CreateRet( ret_val );
         }
         llvm::verifyFunction( *the_function );
-        TheFPM->run( *the_function );
+        //TheFPM->run( *the_function );
     }
     ;
 /*	: GOTO IDENTIFIER ";"
@@ -1842,15 +1938,6 @@ external_declaration
 	: function_definition
 	| declaration
 	;
-
-/*function_definition
-	: declaration_specifiers declarator declaration_list function_definition_helper compound_statement
-	| declaration_specifiers declarator function_definition_helper compound_statement
-	;*/
-/*function_definition
-	: declaration_specifiers declarator function_declaration_list function_definition_helper compound_statement
-	| declaration_specifiers declarator function_definition_helper compound_statement
-	;*/
 
 function_definition
     : function_prototype compound_statement 

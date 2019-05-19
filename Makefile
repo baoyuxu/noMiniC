@@ -32,14 +32,12 @@ parser.cc: parser.yy $(HEADERS)
 parser.o: parser.hh $(HEADERS)
 scanner.o: parser.hh $(HEADERS)
 
-test_all : test_defination test_expression 
-test_expression : noMiniC
-	pytest -v test_expression.py
-test_defination : noMiniC
-	pytest -v test_defination.py
+test_all : test_int_expression 
+test_int_expression : noMiniC
+	pytest -v test_int_expression.py
 
 clean:
 	rm -f *.o parser.hh parser.cc scanner.cc location.hh parser.tab.*
 cleanall:
-	rm -f noMiniC *.o parser.hh parser.cc scanner.cc location.hh parser.tab.*
+	rm -f noMiniC *.o parser.hh parser.cc scanner.cc location.hh parser.tab.* out
 	
