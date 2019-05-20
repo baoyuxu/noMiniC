@@ -1955,8 +1955,8 @@ function_prototype
             ret_type = llvm::Type::getVoidTy(TheContext);
         std::string function_name = $2.IDENTIFIERVal;
 
-        std::vector<llvm::Type *> arg_type( $4.type_id.size() );
-        std::vector<std::string> arg_name( $4.type_id.size() );
+        std::vector<llvm::Type *> arg_type;
+        std::vector<std::string> arg_name;
         for( auto &arg : $4.type_id )
         {
             arg_type.push_back( arg.first );

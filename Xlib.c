@@ -7,7 +7,7 @@ void print_int(int a)
 
 void print_double( double d )
 {
-    printf("%lf", d);
+    printf("%.2lf", d);
 }
 void print_char(int ch)
 {
