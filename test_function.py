@@ -18,7 +18,6 @@ def run(statement):
         p = subprocess.Popen('./noMiniC -o - && clang output.o Xlib.o -o out && ./out', shell=True, stdin = subprocess.PIPE, stdout=subprocess.PIPE,encoding='UTF-8', preexec_fn=os.setsid)
         p.stdin.write(func_str+start_str+statement+str_end)
         p.stdin.close()
-        p.stdout.readline()
         out = p.stdout.readline()
         return out
 

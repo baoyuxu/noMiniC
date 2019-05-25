@@ -43,9 +43,7 @@ WS  [ \t\v\n\f]
 %%
 
 %{
-  // A handy shortcut to the location held by the driver.
   yy::location& loc = drv.location;
-  // Code run each time yylex is called.
   loc.step ();
 %}
 "//"                 { BEGIN(COMMENT); }

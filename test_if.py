@@ -23,7 +23,6 @@ def run(truestatement, falsestatemrnt, cond):
         p = subprocess.Popen('./noMiniC -o - && clang output.o Xlib.o -o out && ./out', shell=True, stdin = subprocess.PIPE, stdout=subprocess.PIPE,encoding='UTF-8', preexec_fn=os.setsid)
         p.stdin.write(start_str+cond+str1+truestatement+str2+falsestatemrnt+str3)
         p.stdin.close()
-        p.stdout.readline()
         out = p.stdout.readline()
         return out
 

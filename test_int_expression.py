@@ -14,7 +14,6 @@ def run(expr):
         p = subprocess.Popen('./noMiniC -o - && clang output.o Xlib.o -o out && ./out', shell=True, stdin = subprocess.PIPE, stdout=subprocess.PIPE,encoding='UTF-8', preexec_fn=os.setsid)
         p.stdin.write(start_str+expr+after_str)
         p.stdin.close()
-        p.stdout.readline()
         out = p.stdout.readline()
         return out
 

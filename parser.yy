@@ -1110,10 +1110,6 @@ assignment_expression
         llvm::Value *var_assignment = nullptr;
         if($1.type == UnaryExpression::Type::IDENTIFIER )
             var_unary = Builder.CreateLoad(NamedValues[$1.IDENTIFIERVal], $1.IDENTIFIERVal.c_str());
-        else
-        {
-            // TODO :throw error
-        }
         
         if($3.type == AssignmentExpression::Type::IDENTIFIER)
             var_assignment = Builder.CreateLoad(NamedValues[$3.IDENTIFIERVal], $3.IDENTIFIERVal.c_str());
@@ -1758,9 +1754,6 @@ statement
     | selection_statement 
 	| iteration_statement
     ;
-    /*
-	TODO: to complete
-    */
 	/*: labeled_statement
 	| compound_statement
 	| expression_statement
@@ -2130,7 +2123,7 @@ void end_parser()
     pass.run(*TheModule);
     dest.flush();
     
-    outs() << "Wrote " << Filename << "\n";
+    //outs() << "Wrote " << Filename << "\n";
     
     return ;
 }
